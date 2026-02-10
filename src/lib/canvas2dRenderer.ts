@@ -1,7 +1,6 @@
 /**
  * Canvas2D Fallback Renderer for CLST
  * Used when PixiJS WebGL initialization fails (e.g., WebView2 without GPU)
- * Implements the same public API as TestRenderer but uses raw Canvas2D
  */
 
 import type { SessionConfig, StimulusState, TestState, InterLayerInfo } from '@/types';
@@ -53,11 +52,7 @@ export class Canvas2DRenderer {
     document.addEventListener('keydown', this.boundKeyDown);
     document.addEventListener('pointerlockchange', this.boundPointerLock);
     document.addEventListener('mousemove', this.boundMouseMove);
-    // Start render loop
-    const loop = () => {
-      this.render();
-      this.animId = requestAnimationFrame(loop);
-    };
+    const loop = () => { this.render(); this.animId = requestAnimationFrame(loop); };
     this.animId = requestAnimationFrame(loop);
   }
 
@@ -72,31 +67,30 @@ export class Canvas2DRenderer {
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, W, H);
 
-    if (!this.lastStimulus || !this.lastState) {
-      return;
-    }
-
+    if (!this.lastStimulus || !this.lastState) return;
     const stim = this.lastStimulus;
     const state = this.lastState;
 
     // Progress text
+    const elapsed = (performance.now() - state.layerStartTime) / 1000;
+    const remaining = Math.max(0, state.layerDuration - elapsed);
     ctx.fillStyle = '#666';
     ctx.font = '14px Arial';
     ctx.textAlign = 'right';
-    ctx.fillText(`Layer ${state.currentLayer} | ${Math.ceil((state.layerTimeRemaining ?? 0) / 1000)}s`, W - 20, 24);
+    ctx.fillText(`Layer ${state.currentLayer} | ${Math.ceil(remaining)}s`, W - 20, 24);
 
     // Layer 0: Simple stimulus (green circle)
-    if (stim.simpleStimulus) {
+    if (stim.simpleStimulus?.visible) {
       ctx.beginPath();
-      ctx.arc(W / 2, H / 2, 30, 0, Math.PI * 2);
+      ctx.arc(stim.simpleStimulus.x, stim.simpleStimulus.y, 30, 0, Math.PI * 2);
       ctx.fillStyle = '#4caf50';
       ctx.fill();
     }
 
     // Layer 1+: Target (blue circle)
-    if (stim.targetPosition) {
+    if (stim.target) {
       ctx.beginPath();
-      ctx.arc(stim.targetPosition.x, stim.targetPosition.y, 20, 0, Math.PI * 2);
+      ctx.arc(stim.target.x, stim.target.y, stim.target.radius || 20, 0, Math.PI * 2);
       ctx.fillStyle = '#2196f3';
       ctx.fill();
 
@@ -109,45 +103,47 @@ export class Canvas2DRenderer {
       // Tracking line
       ctx.beginPath();
       ctx.moveTo(this.cursorX, this.cursorY);
-      ctx.lineTo(stim.targetPosition.x, stim.targetPosition.y);
+      ctx.lineTo(stim.target.x, stim.target.y);
       ctx.strokeStyle = 'rgba(255,255,255,0.15)';
       ctx.lineWidth = 1;
       ctx.stroke();
     }
 
     // Audio cue indicator
-    if (stim.audioToneActive) {
-      ctx.fillStyle = stim.audioToneType === 'high' ? '#ff9800' : stim.audioToneType === 'low' ? '#9c27b0' : '#f44336';
-      ctx.font = 'bold 18px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(`♪ ${(stim.audioToneType || '').toUpperCase()}`, W / 2, 40);
+    if (stim.lastAudioCue) {
+      const age = performance.now() - stim.lastAudioCue.onsetTime;
+      if (age < 500) {
+        const tone = stim.lastAudioCue.tone;
+        ctx.fillStyle = tone === 'high' ? '#ff9800' : tone === 'low' ? '#9c27b0' : '#f44336';
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`♪ ${tone.toUpperCase()}`, W / 2, 40);
+      }
     }
 
     // Peripheral flash (digit in corner)
     if (stim.peripheralFlash) {
       const pf = stim.peripheralFlash;
-      const px = pf.position === 'left' ? 60 : pf.position === 'right' ? W - 60 : W / 2;
-      const py = pf.position === 'top' ? 60 : pf.position === 'bottom' ? H - 60 : H / 2;
+      const dir = pf.direction;
+      const px = dir === 'left' ? 60 : dir === 'right' ? W - 60 : W / 2;
+      const py = dir === 'up' ? 60 : dir === 'down' ? H - 60 : H / 2;
       ctx.fillStyle = '#ff9800';
       ctx.font = 'bold 48px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(String(pf.digit ?? '?'), px, py);
+      ctx.fillText(String(pf.digit), px, py);
       ctx.textBaseline = 'alphabetic';
     }
 
     // Cooldown bar
-    if (stim.cooldownProgress != null) {
+    if (stim.cooldownProgress != null && stim.cooldownProgress > 0) {
       const barW = 300, barH = 12;
       const barX = (W - barW) / 2, barY = H - 60;
-      // Background
       ctx.fillStyle = '#333';
       ctx.fillRect(barX, barY, barW, barH);
-      // Fill
       const fill = Math.min(stim.cooldownProgress, 1);
       ctx.fillStyle = stim.cooldownReady ? '#4caf50' : '#ff9800';
       ctx.fillRect(barX, barY, barW * fill, barH);
-      // Label
       ctx.fillStyle = '#888';
       ctx.font = '12px Arial';
       ctx.textAlign = 'center';
@@ -167,7 +163,7 @@ export class Canvas2DRenderer {
     this.engine.handleCursorPosition(this.cursorX, this.cursorY);
   }
 
-  private onClick(e: MouseEvent): void {
+  private onClick(_e: MouseEvent): void {
     if (!this.isPointerLocked && this.lastState?.currentLayer && this.lastState.currentLayer >= 1) {
       this.canvas.requestPointerLock();
     }
@@ -204,50 +200,41 @@ export class Canvas2DRenderer {
       draw();
       const iv = setInterval(() => {
         remaining--;
-        if (remaining > 0) { draw(); }
+        if (remaining > 0) draw();
         else { clearInterval(iv); resolve(); }
       }, 1000);
     });
   }
 
   showInterLayerScreen(info: InterLayerInfo, onReady: () => void): void {
-    // Use HTML overlay for inter-layer screen
     this.overlay = document.createElement('div');
     Object.assign(this.overlay.style, {
-      position: 'fixed', top: '0', left: '0', width: '100vw', height: '100vh',
-      background: 'rgba(26,26,46,0.95)', display: 'flex', alignItems: 'center',
-      justifyContent: 'center', zIndex: '10000', color: '#fff', flexDirection: 'column',
-      gap: '1.5rem', padding: '2rem', textAlign: 'center'
+      position:'fixed',top:'0',left:'0',width:'100vw',height:'100vh',
+      background:'rgba(26,26,46,0.95)',display:'flex',alignItems:'center',
+      justifyContent:'center',zIndex:'10000',color:'#fff',flexDirection:'column',
+      gap:'1.5rem',padding:'2rem',textAlign:'center'
     });
     this.overlay.innerHTML = `
       <h2 style="color:#4caf50">✓ Layer ${info.completedLayer} Complete</h2>
       <h3>Next: Layer ${info.nextLayer}</h3>
       <p style="color:#ccc">${info.description}</p>
       ${info.newElements.length ? `<p style="color:#ff9800">New: ${info.newElements.join(', ')}</p>` : ''}
-      <p style="color:#888;font-size:.85rem">${info.controls.map(c => `${c.key}: ${c.action}`).join(' · ')}</p>
-      <div id="il-countdown" style="font-size:1.5rem;color:#ff9800"></div>
-      <button id="il-ready" style="padding:.75rem 2rem;background:#2196f3;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:1.1rem;opacity:0.5;pointer-events:none">Waiting...</button>
-    `;
+      <p style="color:#888;font-size:.85rem">${info.controls.map((c: any) => `${c.key}: ${c.action}`).join(' · ')}</p>
+      <div id="il-cd" style="font-size:1.5rem;color:#ff9800"></div>
+      <button id="il-go" style="padding:.75rem 2rem;background:#2196f3;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:1.1rem;opacity:0.5;pointer-events:none">Waiting...</button>`;
     document.body.appendChild(this.overlay);
-
     let cd = info.cooldownSeconds || 5;
-    const cdEl = document.getElementById('il-countdown')!;
-    const btn = document.getElementById('il-ready')!;
+    const cdEl = document.getElementById('il-cd')!;
+    const btn = document.getElementById('il-go')!;
     cdEl.textContent = String(cd);
     const iv = setInterval(() => {
       cd--;
       if (cd > 0) { cdEl.textContent = String(cd); }
       else {
-        clearInterval(iv);
-        cdEl.textContent = '';
+        clearInterval(iv); cdEl.textContent = '';
         btn.textContent = `Start Layer ${info.nextLayer}`;
-        btn.style.opacity = '1';
-        btn.style.pointerEvents = 'auto';
-        btn.addEventListener('click', () => {
-          this.overlay?.remove();
-          this.overlay = null;
-          onReady();
-        });
+        btn.style.opacity = '1'; btn.style.pointerEvents = 'auto';
+        btn.addEventListener('click', () => { this.overlay?.remove(); this.overlay = null; onReady(); });
       }
     }, 1000);
   }
