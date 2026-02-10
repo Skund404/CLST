@@ -1,0 +1,50 @@
+[Info] Successfully preconnected to https://fonts.googleapis.com/
+[Debug] [vite] connecting... (client, line 495)
+[Log] ╔════════════════════════════════════╗ (main.ts, line 203)
+[Log] ║  CLST - Cognitive Load Stress Test ║ (main.ts, line 204)
+[Log] ║  Version 0.1.0                     ║ (main.ts, line 205)
+[Log] ╚════════════════════════════════════╝ (main.ts, line 206)
+[Log] 🚀 Initializing CLST Application... (main.ts, line 10)
+[Log] 📦 Initializing database... (main.ts, line 23)
+[Log] Database initialized: – "sqlite:clst.db" (database.ts, line 29)
+[Log] ✅ Database ready (main.ts, line 25)
+[Log] 🔊 Initializing audio system... (main.ts, line 26)
+[Debug] [vite] connected. (client, line 618)
+[Warning] Failed to load high tone from /assets/audio/tone_high.mp3: – EncodingError: Decoding failed (audioManager.ts, line 79)
+EncodingError: Decoding failed
+[Warning] Failed to load low tone from /assets/audio/tone_low.mp3: – EncodingError: Decoding failed (audioManager.ts, line 79)
+EncodingError: Decoding failed
+[Warning] Failed to load distractor tone from /assets/audio/tone_distractor.mp3: – EncodingError: Decoding failed (audioManager.ts, line 79)
+EncodingError: Decoding failed
+[Log] AudioManager initialized with audio files (audioManager.ts, line 50)
+[Log] ✅ Audio system ready (main.ts, line 29)
+[Log] 🎯 Creating main application... (main.ts, line 30)
+[Log] Database initialized: – "sqlite:clst.db" (database.ts, line 29)
+[Warning] AudioManager already initialized (audioManager.ts, line 34)
+[Error] Failed to get session count: – "error returned from database: (code: 1) no such table: sessions"
+	getSessionCount (database.ts:674)
+[Log] ✅ Application initialized (main.ts, line 33)
+[Log] 🎉 CLST Application ready! (main.ts, line 35)
+[Error] Failed to get config: – "error returned from database: (code: 1) no such table: user_config"
+	getConfig (database.ts:571)
+[Log] 📐 Window resized, updating layout... (main.ts, line 46)
+[Log] 👁️‍🗨️ Window blurred (main.ts, line 57)
+[Log] 👁️ Window focused (main.ts, line 50, x2)
+[Error] ❌ Unhandled promise rejection:
+ReferenceError: Can't find variable: applicationSens
+saveConfigAndContinue — MainApp.ts:336
+saveConfigAndContinue — MainApp.ts:325
+(anonymous function) — MainApp.ts:302
+(anonymous function) — MainApp.ts:300
+	(anonymous function) (main.ts:98)
+[Error] Rejection details:
+Object
+
+promise: Promise {status: "rejected", result: ReferenceError: Can't find variable: applicationSens}
+
+reason: ReferenceError: Can't find variable: applicationSens
+
+Object Prototype
+	(anonymous function) (main.ts:99)
+[Error] Unhandled Promise Rejection: ReferenceError: Can't find variable: applicationSens
+	(anonymous function) (MainApp.ts:245)
