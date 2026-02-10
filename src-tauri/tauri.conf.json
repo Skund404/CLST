@@ -2,7 +2,7 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "CLST",
   "version": "0.3.0",
-  "identifier": "com.clst.app",
+  "identifier": "com.clst.cognitive",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:5173",

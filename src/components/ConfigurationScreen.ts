@@ -611,6 +611,10 @@ export class ConfigurationScreen {
         targetSpeed: parseInt((document.getElementById('target-speed') as HTMLInputElement).value),
         audioIntervalMin: parseInt((document.getElementById('audio-min') as HTMLInputElement).value),
         audioIntervalMax: parseInt((document.getElementById('audio-max') as HTMLInputElement).value),
+        audioInterval: [
+          parseInt((document.getElementById('audio-min') as HTMLInputElement).value),
+          parseInt((document.getElementById('audio-max') as HTMLInputElement).value)
+        ] as [number, number],
         peripheralDuration: parseInt((document.getElementById('peripheral-duration') as HTMLInputElement).value),
         cooldownInterval: parseInt((document.getElementById('cooldown-interval') as HTMLInputElement).value)
       };

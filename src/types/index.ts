@@ -29,6 +29,8 @@ export interface SessionConfig {
 export interface DifficultyParams {
   targetSpeed: number;
   audioInterval: [number, number];
+  audioIntervalMin: number;
+  audioIntervalMax: number;
   peripheralDuration: number;
   cooldownInterval: number;
 }

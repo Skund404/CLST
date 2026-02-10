@@ -161,7 +161,7 @@ export class CheckinComponent {
   /**
    * Render a scale input (1-5 or 0-3)
    */
-  private renderScale(min: number, max: number, labels: string[], selected: number | null): string {
+  private renderScale(min: number, max: number, labels: string[], selected: number | null | undefined): string {
     const options = [];
     
     for (let i = min; i <= max; i++) {
@@ -261,7 +261,7 @@ export class CheckinComponent {
     if (medSelect) {
       medSelect.addEventListener('change', (e) => {
         const value = (e.target as HTMLSelectElement).value;
-        this.formData.medicationStatus = value || null;
+        this.formData.medicationStatus = (value || null) as PreSessionCheckin['medicationStatus'];
       });
     }
 
