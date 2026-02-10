@@ -29,8 +29,8 @@ body {
   font-family: var(--font-family-base);
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
-  color: var(--color-text-primary);
-  background-color: var(--color-bg-primary);
+  color: var(--text, var(--color-text-primary));
+  background-color: var(--surface, var(--color-bg-primary));
   overflow-x: hidden;
 }
 
@@ -197,34 +197,6 @@ svg {
   --z-modal: 1050;
   --z-popover: 1060;
   --z-tooltip: 1070;
-}
-
-/* Light Mode Override (Optional) */
-@media (prefers-color-scheme: light) {
-  :root[data-theme="auto"] {
-    --color-bg-primary: #ffffff;
-    --color-bg-secondary: #f5f5f5;
-    --color-bg-tertiary: #e5e5e5;
-    --color-bg-elevated: #fafafa;
-    --color-bg-overlay: rgba(0, 0, 0, 0.5);
-
-    --color-text-primary: #171717;
-    --color-text-secondary: #525252;
-    --color-text-tertiary: #a3a3a3;
-    --color-text-inverse: #ffffff;
-
-    --color-border-primary: #e5e5e5;
-    --color-border-secondary: #d4d4d4;
-
-    --color-hover: rgba(0, 0, 0, 0.05);
-    --color-active: rgba(0, 0, 0, 0.1);
-    --color-disabled: #d4d4d4;
-
-    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
-    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
-  }
 }
 
 /* ========================================
@@ -778,27 +750,31 @@ input[type="range"]::-moz-range-thumb:hover {
   scrollbar-color: var(--color-bg-tertiary) var(--color-bg-primary);
 }
 
-/* === Dark/Light mode toggle support === */
-:root {
-  --surface: #1a1a2e;
-  --surface-alt: #16213e;
-  --card: #1e2a4a;
-  --text: #e0e0e0;
-  --border: #2a3a5e;
-  --border-light: #1e2a4a;
-  --btn-sec: #2a3a5e;
-  --primary: #2196f3;
-}
 
-html.dark {
+/* === Dark/Light mode toggle support === */
+/* Bridge both naming conventions: original (--color-*) and dashboard (--surface, --card, etc) */
+
+html.dark,
+:root {
+  /* Dashboard vars */
   --surface: #1a1a2e;
   --surface-alt: #16213e;
   --card: #1e2a4a;
   --text: #e0e0e0;
+  --text-secondary: #a3a3a3;
   --border: #2a3a5e;
   --border-light: #1e2a4a;
   --btn-sec: #2a3a5e;
   --primary: #2196f3;
+  /* Override original vars for dark */
+  --color-bg-primary: #1a1a2e;
+  --color-bg-secondary: #16213e;
+  --color-bg-tertiary: #1e2a4a;
+  --color-bg-elevated: #1e2a4a;
+  --color-text-primary: #e0e0e0;
+  --color-text-secondary: #a3a3a3;
+  --color-border-primary: #2a3a5e;
+  --color-border-secondary: #1e2a4a;
   color-scheme: dark;
 }
 
@@ -807,10 +783,22 @@ html:not(.dark) {
   --surface-alt: #f8f9fa;
   --card: #ffffff;
   --text: #1a1a1a;
+  --text-secondary: #666;
   --border: #e0e0e0;
   --border-light: #f0f0f0;
   --btn-sec: #e0e0e0;
   --primary: #2196f3;
+  --color-bg-primary: #f5f5f5;
+  --color-bg-secondary: #ffffff;
+  --color-bg-tertiary: #e8e8e8;
+  --color-bg-elevated: #ffffff;
+  --color-bg-overlay: rgba(0, 0, 0, 0.4);
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #555;
+  --color-text-tertiary: #888;
+  --color-border-primary: #e0e0e0;
+  --color-border-secondary: #d4d4d4;
+  --color-hover: rgba(0, 0, 0, 0.05);
   color-scheme: light;
 }
 
@@ -819,13 +807,13 @@ html:not(.dark) body {
   color: #1a1a1a;
 }
 
-html:not(.dark) .app-header {
-  background: #ffffff;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-html:not(.dark) .nav-button {
-  color: #333;
-}
-
+html:not(.dark) .clst-app { background: #f5f5f5; color: #1a1a1a; }
+html:not(.dark) .app-header { background: #fff; border-bottom: 1px solid #e0e0e0; color: #1a1a1a; }
+html:not(.dark) .nav-button { color: #333; }
+html:not(.dark) h1, html:not(.dark) h2, html:not(.dark) h3, html:not(.dark) h4 { color: #1a1a1a; }
+html:not(.dark) p { color: #333; }
 html:not(.dark) .crs-pill.none { background: #f0f0f0; color: #888; }
+html:not(.dark) .config-container, html:not(.dark) .config-form { color: #1a1a1a; }
+html:not(.dark) input, html:not(.dark) select, html:not(.dark) textarea { background: #fff; color: #1a1a1a; border-color: #ddd; }
+html:not(.dark) label { color: #333; }
+html:not(.dark) .app-footer { color: #888; }

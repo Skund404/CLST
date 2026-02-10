@@ -20,12 +20,12 @@
   font-size: 2.5rem;
   font-weight: 700;
   margin: 0 0 0.5rem 0;
-  color: #1a1a1a;
+  color: var(--text, #1a1a1a);
 }
 
 .config-subtitle {
   font-size: 1.125rem;
-  color: #666;
+  color: var(--text-secondary, #666);
   margin: 0;
 }
 
@@ -38,7 +38,7 @@
 
 /* Sections */
 .config-section {
-  background: #fff;
+  background: var(--card, #fff);
   border-radius: 12px;
   padding: 2rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -49,7 +49,7 @@
   font-weight: 600;
   margin: 0 0 1.5rem 0;
   color: #2196f3;
-  border-bottom: 2px solid #e3f2fd;
+  border-bottom: 2px solid var(--border, #e3f2fd);
   padding-bottom: 0.5rem;
 }
 
@@ -65,7 +65,7 @@
   font-size: 1.125rem;
   font-weight: 600;
   margin: 0 0 1rem 0;
-  color: #333;
+  color: var(--text, #333);
 }
 
 /* Form Controls */
@@ -85,7 +85,7 @@
 .form-group label {
   font-size: 0.95rem;
   font-weight: 500;
-  color: #555;
+  color: var(--text, #555);
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -94,7 +94,7 @@
 .help-text {
   font-size: 0.8rem;
   font-weight: 400;
-  color: #999;
+  color: var(--text-secondary, #999);
   font-style: italic;
 }
 
@@ -102,9 +102,9 @@
 .form-group select {
   padding: 0.75rem;
   font-size: 1rem;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border, #e0e0e0);
   border-radius: 6px;
-  background: #f8f9fa;
+  background: var(--surface-alt, #f8f9fa);
   transition: all 0.2s ease;
 }
 
@@ -117,7 +117,7 @@
 .form-group select:focus {
   outline: none;
   border-color: #2196f3;
-  background: #fff;
+  background: var(--card, #fff);
 }
 
 .form-group input[type="range"] {
@@ -196,8 +196,8 @@
 }
 
 .difficulty-card {
-  background: #f8f9fa;
-  border: 2px solid #e0e0e0;
+  background: var(--surface-alt, #f8f9fa);
+  border: 2px solid var(--border, #e0e0e0);
   border-radius: 8px;
   padding: 1.5rem;
   transition: all 0.2s ease;
@@ -218,12 +218,12 @@
   font-size: 1.125rem;
   font-weight: 600;
   margin: 0 0 0.5rem 0;
-  color: #333;
+  color: var(--text, #333);
 }
 
 .difficulty-card p {
   font-size: 0.875rem;
-  color: #666;
+  color: var(--text-secondary, #666);
   margin: 0 0 1rem 0;
 }
 
@@ -232,7 +232,7 @@
   padding: 0;
   margin: 0;
   font-size: 0.875rem;
-  color: #555;
+  color: var(--text, #555);
 }
 
 .difficulty-card li {
@@ -248,7 +248,7 @@
 
 /* Custom Difficulty */
 .custom-difficulty {
-  background: #f8f9fa;
+  background: var(--surface-alt, #f8f9fa);
   border-radius: 8px;
   padding: 1.5rem;
   margin-top: 1rem;
@@ -258,12 +258,12 @@
   font-size: 1.125rem;
   font-weight: 600;
   margin: 0 0 1.5rem 0;
-  color: #333;
+  color: var(--text, #333);
 }
 
 /* Calibration Info */
 .calibration-info .info-panel {
-  background: #f8f9fa;
+  background: var(--surface-alt, #f8f9fa);
   border-left: 4px solid #2196f3;
   border-radius: 6px;
   padding: 1.5rem;
@@ -278,12 +278,12 @@
   font-size: 1.125rem;
   font-weight: 600;
   margin: 0 0 0.75rem 0;
-  color: #333;
+  color: var(--text, #333);
 }
 
 .info-panel p {
   font-size: 0.95rem;
-  color: #555;
+  color: var(--text, #555);
   margin: 0 0 0.75rem 0;
   line-height: 1.6;
 }
@@ -296,7 +296,7 @@
 
 .info-panel li {
   font-size: 0.95rem;
-  color: #555;
+  color: var(--text, #555);
   padding: 0.25rem 0 0.25rem 1.5rem;
   position: relative;
 }
@@ -338,9 +338,9 @@
 }
 
 .btn-secondary {
-  background: #f5f5f5;
-  color: #333;
-  border: 2px solid #e0e0e0;
+  background: var(--surface-alt, #f5f5f5);
+  color: var(--text, #333);
+  border: 2px solid var(--border, #e0e0e0);
 }
 
 .btn-secondary:hover {
@@ -380,10 +380,7 @@
 }
 
 /* Dark Mode */
-@media (prefers-color-scheme: dark) {
-  .config-screen {
-    color: #e0e0e0;
-  }
+
 
   .config-header h1 {
     color: #f5f5f5;
@@ -419,14 +416,14 @@
 
   .form-group input[type="number"],
   .form-group select {
-    background: #333;
-    border-color: #555;
+    background: var(--surface-alt);
+    border-color: var(--text, #555);
     color: #e0e0e0;
   }
 
   .form-group input[type="number"]:hover,
   .form-group select:hover {
-    border-color: #666;
+    border-color: var(--text-secondary, #666);
   }
 
   .form-group input[type="number"]:focus,
@@ -445,8 +442,8 @@
   }
 
   .difficulty-card {
-    background: #333;
-    border-color: #555;
+    background: var(--surface-alt);
+    border-color: var(--text, #555);
   }
 
   .difficulty-option input[type="radio"]:checked + .difficulty-card {
@@ -461,7 +458,7 @@
 
   .custom-difficulty,
   .info-panel {
-    background: #333;
+    background: var(--surface-alt);
   }
 
   .info-panel p,
@@ -472,11 +469,11 @@
   .btn-secondary {
     background: #3a3a3a;
     color: #e0e0e0;
-    border-color: #555;
+    border-color: var(--text, #555);
   }
 
   .btn-secondary:hover {
     background: #454545;
-    border-color: #666;
+    border-color: var(--text-secondary, #666);
   }
 }

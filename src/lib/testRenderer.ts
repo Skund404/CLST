@@ -73,14 +73,31 @@ export class TestRenderer {
   }
 
   async initialize(): Promise<void> {
-    await this.app.init({
-      width: this.config.monitorResolution.width,
-      height: this.config.monitorResolution.height,
-      backgroundColor: 0x1a1a1a,
-      antialias: true,
-      resolution: window.devicePixelRatio || 1,
-      autoDensity: true
-    });
+    try {
+      await this.app.init({
+        width: this.config.monitorResolution.width,
+        height: this.config.monitorResolution.height,
+        backgroundColor: 0x1a1a1a,
+        antialias: true,
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true,
+        preferWebGLVersion: 2,
+      });
+    } catch (e) {
+      console.error('PixiJS WebGL init failed, trying without preferences:', e);
+      try {
+        await this.app.init({
+          width: this.config.monitorResolution.width,
+          height: this.config.monitorResolution.height,
+          backgroundColor: 0x1a1a1a,
+          antialias: false,
+          resolution: 1,
+        });
+      } catch (e2) {
+        console.error('PixiJS init completely failed:', e2);
+        throw new Error('Graphics initialization failed. Your browser may not support WebGL.');
+      }
+    }
 
     this.app.canvas.style.width = '100vw';
     this.app.canvas.style.height = '100vh';

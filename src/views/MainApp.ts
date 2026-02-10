@@ -143,16 +143,26 @@ export class MainApp {
     this.currentSessionId = crypto.randomUUID();
     this.contentContainer.innerHTML = '<div id="tc"></div>';
     const tc = document.getElementById('tc')!;
-    Object.assign(tc.style, {position:'fixed',top:'0',left:'0',width:'100vw',height:'100vh',zIndex:'9999'});
-    this.testEngine = new TestEngine(this.currentSessionId, this.sessionConfig);
-    this.testRenderer = new TestRenderer(tc, this.sessionConfig, this.testEngine);
-    await this.testRenderer.initialize();
-    this.testEngine.setCallbacks({
-      onStimulusUpdate: (s: any) => this.testRenderer?.updateFromEngine(s, this.testEngine!.getState()),
-      onLayerComplete: (_: any, info: InterLayerInfo) => this.testRenderer?.showInterLayerScreen(info, () => this.testEngine!.advanceToNextLayer()),
-      onTestComplete: () => { this.testRenderer?.showComplete(); this.processResults().then(() => setTimeout(() => this.showState('results'), 2000)); }
-    });
-    await this.testRenderer.showCountdown(3); await this.testEngine.start();
+    Object.assign(tc.style, {position:'fixed',top:'0',left:'0',width:'100vw',height:'100vh',zIndex:'9999',background:'#1a1a1a'});
+    try {
+      this.testEngine = new TestEngine(this.currentSessionId, this.sessionConfig);
+      this.testRenderer = new TestRenderer(tc, this.sessionConfig, this.testEngine);
+      await this.testRenderer.initialize();
+      this.testEngine.setCallbacks({
+        onStimulusUpdate: (s: any) => this.testRenderer?.updateFromEngine(s, this.testEngine!.getState()),
+        onLayerComplete: (_: any, info: InterLayerInfo) => this.testRenderer?.showInterLayerScreen(info, () => this.testEngine!.advanceToNextLayer()),
+        onTestComplete: () => { this.testRenderer?.showComplete(); this.processResults().then(() => setTimeout(() => this.showState('results'), 2000)); }
+      });
+      await this.testRenderer.showCountdown(3); await this.testEngine.start();
+    } catch (err) {
+      console.error('Test startup failed:', err);
+      tc.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#fff;flex-direction:column;gap:1rem;padding:2rem;text-align:center">
+        <h2 style="color:#f44336">Test Failed to Start</h2>
+        <p style="color:#ccc">${err instanceof Error ? err.message : 'Unknown error'}</p>
+        <p style="color:#888;font-size:.85rem">This may be a WebGL compatibility issue. Try updating your graphics drivers.</p>
+        <button onclick="window.location.reload()" style="padding:.75rem 2rem;background:#2196f3;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:1rem">Reload App</button>
+      </div>`;
+    }
   }
 
   private async processResults(): Promise<void> {

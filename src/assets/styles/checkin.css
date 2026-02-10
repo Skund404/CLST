@@ -1,377 +1,79 @@
 /**
  * Pre-Session Check-In Styles
- * Clean, neutral presentation per Section 4 specification
+ * Uses CSS variables for dark/light mode support
  */
 
-.checkin-container {
-  max-width: 600px;
-  margin: 0 auto;
-  padding: 2rem;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  color: #1a1a1a;
-}
-
-.checkin-header {
-  text-align: center;
-  margin-bottom: 2rem;
-}
-
-.checkin-header h2 {
-  font-size: 1.75rem;
-  font-weight: 600;
-  margin: 0 0 0.5rem 0;
-  color: #1a1a1a;
-}
-
-.checkin-subtitle {
-  font-size: 0.95rem;
-  color: #666;
-  margin: 0;
-}
-
-/* Form structure */
-.checkin-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.checkin-question {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.checkin-label {
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: #333;
-}
-
-/* Scale inputs (1-5, 0-3) */
-.checkin-scale {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
+.checkin-container { max-width: 600px; margin: 0 auto; padding: 2rem; color: var(--text, #1a1a1a); }
+.checkin-header { text-align: center; margin-bottom: 2rem; }
+.checkin-header h2 { font-size: 1.75rem; font-weight: 600; margin: 0 0 0.5rem; color: var(--text, #1a1a1a); }
+.checkin-subtitle { font-size: 0.95rem; color: var(--text-secondary, #666); margin: 0; }
+.checkin-form { display: flex; flex-direction: column; gap: 1.5rem; }
+.checkin-question { display: flex; flex-direction: column; gap: 0.75rem; }
+.checkin-label { font-size: 0.95rem; font-weight: 500; color: var(--text, #333); }
+.checkin-scale { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .scale-option {
-  flex: 1;
-  min-width: 80px;
-  padding: 0.75rem 0.5rem;
-  background: #f5f5f5;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.875rem;
-  text-align: center;
-  color: #333;
+  flex: 1; min-width: 80px; padding: 0.75rem 0.5rem;
+  background: var(--surface-alt, #f5f5f5); border: 2px solid var(--border, #e0e0e0);
+  border-radius: 8px; cursor: pointer; transition: all 0.2s ease;
+  font-size: 0.875rem; text-align: center; color: var(--text, #333);
 }
-
-.scale-option:hover {
-  background: #ebebeb;
-  border-color: #d0d0d0;
-}
-
-.scale-option-selected {
-  background: #e3f2fd;
-  border-color: #2196f3;
-  color: #1976d2;
-  font-weight: 500;
-}
-
-.scale-label {
-  display: block;
-  font-weight: 500;
-}
-
-/* Dropdown select */
+.scale-option:hover { background: var(--border, #ebebeb); border-color: var(--border, #d0d0d0); }
+.scale-option-selected { background: #e3f2fd; border-color: #2196f3; color: #1976d2; font-weight: 500; }
+html.dark .scale-option-selected { background: #1e3a5f; color: #64b5f6; }
+.scale-label { display: block; font-weight: 500; }
 .checkin-select {
-  padding: 0.75rem;
-  font-size: 0.95rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  background: #f5f5f5;
-  color: #333;
-  cursor: pointer;
-  transition: border-color 0.2s ease;
+  padding: 0.75rem; font-size: 0.95rem; border: 2px solid var(--border, #e0e0e0);
+  border-radius: 8px; background: var(--surface-alt, #f5f5f5); color: var(--text, #333);
+  cursor: pointer; transition: border-color 0.2s ease;
 }
-
-.checkin-select:hover {
-  border-color: #d0d0d0;
-}
-
-.checkin-select:focus {
-  outline: none;
-  border-color: #2196f3;
-  background: #fff;
-}
-
-/* Multi-select checkboxes */
-.checkin-multiselect {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
+.checkin-select:focus { outline: none; border-color: #2196f3; background: var(--card, #fff); }
+.checkin-multiselect { display: flex; gap: 0.75rem; flex-wrap: wrap; }
 .multiselect-option {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: #f5f5f5;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
+  display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem;
+  background: var(--surface-alt, #f5f5f5); border: 2px solid var(--border, #e0e0e0);
+  border-radius: 8px; cursor: pointer; transition: all 0.2s ease; user-select: none;
 }
-
-.multiselect-option:hover {
-  background: #ebebeb;
-  border-color: #d0d0d0;
-}
-
-.multiselect-option input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-  accent-color: #2196f3;
-}
-
-.multiselect-option input[type="checkbox"]:checked + .multiselect-label {
-  font-weight: 500;
-  color: #1976d2;
-}
-
-.multiselect-label {
-  font-size: 0.95rem;
-  color: #333;
-}
-
-/* Symptom label input with autocomplete */
-.symptom-label-container {
-  position: relative;
-  margin-top: 0.5rem;
-}
-
+.multiselect-option:hover { background: var(--border, #ebebeb); }
+.multiselect-option input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: #2196f3; }
+.multiselect-option input[type="checkbox"]:checked + .multiselect-label { font-weight: 500; color: #2196f3; }
+.multiselect-label { font-size: 0.95rem; color: var(--text, #333); }
+.symptom-label-container { position: relative; margin-top: 0.5rem; }
 .symptom-label-input {
-  width: 100%;
-  padding: 0.75rem;
-  font-size: 0.95rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  background: #f5f5f5;
-  color: #333;
-  transition: border-color 0.2s ease;
+  width: 100%; padding: 0.75rem; font-size: 0.95rem;
+  border: 2px solid var(--border, #e0e0e0); border-radius: 8px;
+  background: var(--surface-alt, #f5f5f5); color: var(--text, #333); transition: border-color 0.2s ease;
 }
-
-.symptom-label-input:hover {
-  border-color: #d0d0d0;
-}
-
-.symptom-label-input:focus {
-  outline: none;
-  border-color: #2196f3;
-  background: #fff;
-}
-
+.symptom-label-input:focus { outline: none; border-color: #2196f3; background: var(--card, #fff); }
 .symptom-suggestions {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: #fff;
-  border: 2px solid #e0e0e0;
-  border-top: none;
-  border-radius: 0 0 8px 8px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-  max-height: 200px;
-  overflow-y: auto;
+  display: none; position: absolute; top: 100%; left: 0; right: 0;
+  background: var(--card, #fff); border: 2px solid var(--border, #e0e0e0); border-top: none;
+  border-radius: 0 0 8px 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 10;
+  max-height: 200px; overflow-y: auto;
 }
-
-.symptom-suggestion {
-  padding: 0.75rem;
-  cursor: pointer;
-  transition: background 0.15s ease;
-  font-size: 0.95rem;
-  color: #333;
+.symptom-suggestion { padding: 0.75rem; cursor: pointer; transition: background 0.15s; font-size: 0.95rem; color: var(--text, #333); }
+.symptom-suggestion:hover { background: var(--surface-alt, #f5f5f5); }
+.symptom-suggestion:not(:last-child) { border-bottom: 1px solid var(--border-light, #f0f0f0); }
+.checkin-input, .checkin-textarea {
+  padding: 0.75rem; font-size: 0.95rem; font-family: inherit;
+  border: 2px solid var(--border, #e0e0e0); border-radius: 8px;
+  background: var(--surface-alt, #f5f5f5); color: var(--text, #333);
+  transition: border-color 0.2s ease; resize: vertical;
 }
-
-.symptom-suggestion:hover {
-  background: #f5f5f5;
-}
-
-.symptom-suggestion:not(:last-child) {
-  border-bottom: 1px solid #f0f0f0;
-}
-
-/* Text input and textarea */
-.checkin-input,
-.checkin-textarea {
-  padding: 0.75rem;
-  font-size: 0.95rem;
-  font-family: inherit;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  background: #f5f5f5;
-  color: #333;
-  transition: border-color 0.2s ease;
-  resize: vertical;
-}
-
-.checkin-input:hover,
-.checkin-textarea:hover {
-  border-color: #d0d0d0;
-}
-
-.checkin-input:focus,
-.checkin-textarea:focus {
-  outline: none;
-  border-color: #2196f3;
-  background: #fff;
-}
-
-.checkin-textarea {
-  width: 100%;
-  min-height: 80px;
-}
-
-/* Action buttons */
-.checkin-actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
+.checkin-input:focus, .checkin-textarea:focus { outline: none; border-color: #2196f3; background: var(--card, #fff); }
+.checkin-textarea { width: 100%; min-height: 80px; }
+.checkin-actions { display: flex; gap: 1rem; margin-top: 1rem; }
 .checkin-button {
-  flex: 1;
-  padding: 1rem;
-  font-size: 1rem;
-  font-weight: 500;
-  border: 2px solid;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  flex: 1; padding: 1rem; font-size: 1rem; font-weight: 500;
+  border: 2px solid; border-radius: 8px; cursor: pointer; transition: all 0.2s ease;
 }
-
-.checkin-button-primary {
-  background: #2196f3;
-  border-color: #2196f3;
-  color: #fff;
-}
-
-.checkin-button-primary:hover {
-  background: #1976d2;
-  border-color: #1976d2;
-}
-
-.checkin-button-secondary {
-  background: transparent;
-  border-color: #e0e0e0;
-  color: #666;
-}
-
-.checkin-button-secondary:hover {
-  background: #f5f5f5;
-  border-color: #d0d0d0;
-  color: #333;
-}
-
-/* Responsive design */
+.checkin-button-primary { background: #2196f3; border-color: #2196f3; color: #fff; }
+.checkin-button-primary:hover { background: #1976d2; border-color: #1976d2; }
+.checkin-button-secondary { background: transparent; border-color: var(--border, #e0e0e0); color: var(--text-secondary, #666); }
+.checkin-button-secondary:hover { background: var(--surface-alt, #f5f5f5); color: var(--text, #333); }
 @media (max-width: 640px) {
-  .checkin-container {
-    padding: 1rem;
-  }
-
-  .checkin-scale {
-    flex-direction: column;
-  }
-
-  .scale-option {
-    min-width: unset;
-  }
-
-  .checkin-multiselect {
-    flex-direction: column;
-  }
-
-  .checkin-actions {
-    flex-direction: column-reverse;
-  }
-}
-
-/* Dark mode support (optional) */
-@media (prefers-color-scheme: dark) {
-  .checkin-container {
-    color: #e0e0e0;
-  }
-
-  .checkin-header h2 {
-    color: #f5f5f5;
-  }
-
-  .checkin-subtitle,
-  .checkin-button-secondary {
-    color: #a0a0a0;
-  }
-
-  .checkin-label,
-  .scale-label,
-  .multiselect-label,
-  .symptom-label-input,
-  .symptom-suggestion,
-  .checkin-input,
-  .checkin-textarea {
-    color: #e0e0e0;
-  }
-
-  .scale-option,
-  .checkin-select,
-  .multiselect-option,
-  .symptom-label-input,
-  .checkin-input,
-  .checkin-textarea {
-    background: #2a2a2a;
-    border-color: #404040;
-  }
-
-  .scale-option:hover,
-  .checkin-select:hover,
-  .multiselect-option:hover,
-  .symptom-label-input:hover,
-  .checkin-input:hover,
-  .checkin-textarea:hover {
-    background: #333;
-    border-color: #505050;
-  }
-
-  .scale-option-selected {
-    background: #1e3a5f;
-    border-color: #2196f3;
-    color: #64b5f6;
-  }
-
-  .checkin-select:focus,
-  .symptom-label-input:focus,
-  .checkin-input:focus,
-  .checkin-textarea:focus {
-    background: #1a1a1a;
-  }
-
-  .symptom-suggestions {
-    background: #2a2a2a;
-    border-color: #404040;
-  }
-
-  .symptom-suggestion:hover {
-    background: #333;
-  }
-
-  .checkin-button-secondary:hover {
-    background: #2a2a2a;
-  }
+  .checkin-container { padding: 1rem; }
+  .checkin-scale { flex-direction: column; }
+  .scale-option { min-width: unset; }
+  .checkin-multiselect { flex-direction: column; }
+  .checkin-actions { flex-direction: column-reverse; }
 }

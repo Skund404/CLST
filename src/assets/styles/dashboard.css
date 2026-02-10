@@ -4,7 +4,7 @@
  */
 
 .dashboard {
-  background: #fff;
+  background: var(--card, #fff);
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -23,7 +23,7 @@
   font-size: 1.75rem;
   font-weight: 600;
   margin: 0;
-  color: #333;
+  color: var(--text, #333);
 }
 
 .dashboard-controls {
@@ -34,9 +34,9 @@
 .dashboard-select {
   padding: 0.5rem 1rem;
   font-size: 0.95rem;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border, #e0e0e0);
   border-radius: 6px;
-  background: #f8f9fa;
+  background: var(--surface-alt, #f8f9fa);
   cursor: pointer;
   transition: border-color 0.2s ease;
 }
@@ -48,13 +48,13 @@
 .dashboard-select:focus {
   outline: none;
   border-color: #2196f3;
-  background: #fff;
+  background: var(--card, #fff);
 }
 
 /* Tab Navigation */
 .dashboard-tabs {
   display: flex;
-  background: #f8f9fa;
+  background: var(--surface-alt, #f8f9fa);
   border-bottom: 2px solid #e0e0e0;
   overflow-x: auto;
 }
@@ -69,17 +69,17 @@
   border-bottom: 3px solid transparent;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: #666;
+  color: var(--text-secondary, #666);
   white-space: nowrap;
 }
 
 .tab-button:hover {
   background: #e9ecef;
-  color: #333;
+  color: var(--text, #333);
 }
 
 .tab-button.active {
-  background: #fff;
+  background: var(--card, #fff);
   border-bottom-color: #2196f3;
   color: #2196f3;
 }
@@ -134,7 +134,7 @@
 
 .selector-group label {
   font-weight: 500;
-  color: #555;
+  color: var(--text, #555);
 }
 
 .comparison-table {
@@ -144,30 +144,30 @@
 }
 
 .comparison-table thead {
-  background: #f8f9fa;
+  background: var(--surface-alt, #f8f9fa);
 }
 
 .comparison-table th,
 .comparison-table td {
   padding: 1rem;
   text-align: left;
-  border-bottom: 1px solid #e9ecef;
+  border-bottom: 1px solid var(--border, #e9ecef);
 }
 
 .comparison-table th {
   font-weight: 600;
-  color: #555;
+  color: var(--text, #555);
   font-size: 0.875rem;
   text-transform: uppercase;
 }
 
 .comparison-table td {
-  color: #333;
+  color: var(--text, #333);
   font-size: 0.95rem;
 }
 
 .comparison-table tbody tr:hover {
-  background: #f8f9fa;
+  background: var(--surface-alt, #f8f9fa);
 }
 
 /* Metrics Tab */
@@ -185,7 +185,7 @@
 
 .metric-selector label {
   font-weight: 500;
-  color: #555;
+  color: var(--text, #555);
 }
 
 .metric-stats-grid {
@@ -200,19 +200,19 @@
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background: #f8f9fa;
+  background: var(--surface-alt, #f8f9fa);
   border-radius: 8px;
 }
 
 .stat-label {
   font-size: 0.95rem;
-  color: #666;
+  color: var(--text-secondary, #666);
 }
 
 .stat-value {
   font-size: 1.125rem;
   font-weight: 600;
-  color: #333;
+  color: var(--text, #333);
 }
 
 /* Distribution Tab */
@@ -229,7 +229,7 @@
 }
 
 .stat-card {
-  background: #f8f9fa;
+  background: var(--surface-alt, #f8f9fa);
   border-radius: 8px;
   padding: 1.5rem;
   text-align: center;
@@ -238,7 +238,7 @@
 .stat-card h4 {
   font-size: 0.875rem;
   font-weight: 500;
-  color: #666;
+  color: var(--text-secondary, #666);
   margin: 0 0 0.5rem 0;
   text-transform: uppercase;
 }
@@ -259,13 +259,13 @@
 .correlation-container h3 {
   font-size: 1.25rem;
   margin: 2rem 0 1rem 0;
-  color: #333;
+  color: var(--text, #333);
 }
 
 /* Utility */
 .no-data {
   text-align: center;
-  color: #999;
+  color: var(--text-secondary, #999);
   font-style: italic;
   padding: 3rem;
   font-size: 1.125rem;
@@ -273,7 +273,7 @@
 
 .info-text {
   text-align: center;
-  color: #666;
+  color: var(--text-secondary, #666);
   padding: 2rem;
   font-size: 1rem;
 }
@@ -338,10 +338,7 @@
 }
 
 /* Dark Mode */
-@media (prefers-color-scheme: dark) {
-  .dashboard {
-    background: #2a2a2a;
-  }
+
 
   .dashboard-header {
     border-bottom-color: #404040;
@@ -353,12 +350,12 @@
 
   .dashboard-select {
     background: #333;
-    border-color: #555;
+    border-color: var(--text, #555);
     color: #e0e0e0;
   }
 
   .dashboard-select:hover {
-    border-color: #666;
+    border-color: var(--text-secondary, #666);
   }
 
   .dashboard-select:focus {
