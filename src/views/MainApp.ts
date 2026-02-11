@@ -90,13 +90,24 @@ export class MainApp {
         <div class="form-group"><label>Width (px)</label><input type="number" id="monitor-width" value="${ex?.monitorResolution?.width||screen.width}" required></div>
         <div class="form-group"><label>Height (px)</label><input type="number" id="monitor-height" value="${ex?.monitorResolution?.height||screen.height}" required></div>
         <div class="form-group"><label>Refresh Rate</label><select id="refresh-rate">${[60,75,120,144,165,240].map(r=>`<option value="${r}" ${ex?.monitorRefreshRate===r?'selected':''}>${r}Hz</option>`).join('')}</select></div>
-        <div class="form-group"><label>Volume</label><input type="range" id="audio-volume" min="0" max="1" step="0.1" value="${ex?.audioVolume??0.5}"><span id="vol-d">${((ex?.audioVolume??0.5)*100).toFixed(0)}%</span></div></div>
+        <div class="form-group"><label>Volume</label><input type="range" id="audio-volume" min="0" max="1" step="0.1" value="${ex?.audioVolume??0.5}"><span id="vol-d">${((ex?.audioVolume??0.5)*100).toFixed(0)}%</span>
+          <button type="button" id="test-sound" class="btn btn-secondary" style="margin-top:.5rem;padding:.4rem .8rem;font-size:.8rem">🔊 Test Sound</button></div></div>
         <div class="config-section"><h3>Difficulty</h3><div class="form-group"><select id="difficulty">
           <option value="casual">Casual</option><option value="standard" ${(ex?.difficulty||'standard')==='standard'?'selected':''}>Standard</option><option value="intense">Intense</option></select></div></div>
         <div class="config-actions"><button type="submit" class="btn btn-primary">Save & Continue</button>${ex?'<button type="button" id="cancel-cfg" class="btn btn-secondary">Cancel</button>':''}</div>
       </form></div>`;
     const sl = document.getElementById('audio-volume') as HTMLInputElement;
     sl?.addEventListener('input', () => { document.getElementById('vol-d')!.textContent = `${(parseFloat(sl.value)*100).toFixed(0)}%`; getAudioManager().setVolume(parseFloat(sl.value)); });
+    document.getElementById('test-sound')?.addEventListener('click', async () => {
+      const am = getAudioManager();
+      try {
+        if (am.getState() !== 'running') await am.init({ volume: parseFloat(sl?.value || '0.5') });
+        am.setVolume(parseFloat(sl?.value || '0.5'));
+        am.play('high');
+        setTimeout(() => am.play('low'), 300);
+        setTimeout(() => am.play('distractor'), 600);
+      } catch (e) { console.error('Test sound failed:', e); }
+    });
     document.getElementById('config-form')!.addEventListener('submit', async e => { e.preventDefault(); await this.saveConfig(); });
     document.getElementById('cancel-cfg')?.addEventListener('click', () => this.showState('checkin'));
   }
@@ -213,24 +224,67 @@ export class MainApp {
     const al = z!=null ? ScoringEngine.checkAlertThreshold(z) : null;
     this.injectStyle(`.results-container{max-width:800px;margin:2rem auto;padding:2rem}.crs-big{font-size:4rem;font-weight:700;text-align:center;margin:1rem 0}.crs-big.normal{color:#4caf50}.crs-big.warning{color:#ff9800}.crs-big.critical{color:#f44336}.score-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;margin:2rem 0}.score-card{background:var(--surface-alt,#f5f5f5);border-radius:12px;padding:1.25rem;text-align:center}.score-card .label{font-size:.85rem;color:#888}.score-card .value{font-size:1.5rem;font-weight:600;margin-top:.5rem}.results-actions{display:flex;gap:1rem;margin-top:2rem;justify-content:center}.results-actions .btn{padding:.75rem 2rem;border:none;border-radius:8px;cursor:pointer;font-weight:600}`);
     const cc = al === 'critical' ? 'critical' : al === 'warning' ? 'warning' : 'normal';
+    const sessionCount = await db.getSessionCount();
+    const isCalibrating = sessionCount <= 5;
+    const isPreBaseline = sessionCount > 5 && sessionCount <= 15;
+    const statusNote = isCalibrating
+      ? `<p style="text-align:center;color:#ff9800;font-size:.9rem;margin-top:.5rem">⏳ Calibrating — Session ${sessionCount} of 5. Scores are preliminary and will become more accurate with more sessions.</p>`
+      : isPreBaseline
+      ? `<p style="text-align:center;color:#2196f3;font-size:.9rem;margin-top:.5rem">📊 Building baseline — ${sessionCount - 5} of 10 sessions toward full accuracy.</p>`
+      : '';
     this.contentContainer.innerHTML = `<div class="results-container">
       <h1 style="text-align:center">Session Complete</h1>
       <p style="text-align:center;color:#888">${s.timestamp.toLocaleString()}</p>
       <div class="crs-big ${cc}">${s.crs != null ? s.crs.toFixed(1) : '\u2014'}</div>
-      <p style="text-align:center;color:#888">Cognitive Readiness Score</p>
+      <p style="text-align:center;color:#888">Cognitive Readiness Score${isCalibrating ? ' (Preliminary)' : ''}</p>
+      ${statusNote}
       ${al ? `<p style="text-align:center;color:${al==='critical'?'#f44336':'#ff9800'};font-weight:600">\u26a0 ${al.toUpperCase()} \u2014 Below baseline</p>` : ''}
       <div class="score-grid">
-        <div class="score-card"><div class="label">LPI L0</div><div class="value">${s.lpi0?.toFixed(1)??'\u2014'}</div></div>
-        <div class="score-card"><div class="label">LPI L1</div><div class="value">${s.lpi1?.toFixed(1)??'\u2014'}</div></div>
-        <div class="score-card"><div class="label">LPI L2</div><div class="value">${s.lpi2?.toFixed(1)??'\u2014'}</div></div>
-        <div class="score-card"><div class="label">LPI L3</div><div class="value">${s.lpi3?.toFixed(1)??'\u2014'}</div></div>
-        <div class="score-card"><div class="label">DC</div><div class="value">${s.degradationCoeff!=null?(s.degradationCoeff*100).toFixed(0)+'%':'\u2014'}</div></div>
-        <div class="score-card"><div class="label">Stalls</div><div class="value">${s.systemStalls}</div></div>
+        <div class="score-card"><div class="label">Reaction Time (Layer 0)</div><div class="value">${s.lpi0?.toFixed(1)??'\u2014'}</div></div>
+        <div class="score-card"><div class="label">Tracking (Layer 1)</div><div class="value">${s.lpi1?.toFixed(1)??'\u2014'}</div></div>
+        <div class="score-card"><div class="label">Track + Audio (Layer 2)</div><div class="value">${s.lpi2?.toFixed(1)??'\u2014'}</div></div>
+        <div class="score-card"><div class="label">Full Load (Layer 3)</div><div class="value">${s.lpi3?.toFixed(1)??'\u2014'}</div></div>
+        <div class="score-card"><div class="label">Load Tolerance</div><div class="value">${s.degradationCoeff!=null?(s.degradationCoeff*100).toFixed(0)+'%':'\u2014'}</div></div>
+        <div class="score-card"><div class="label">System Stalls</div><div class="value">${s.systemStalls}</div></div>
       </div>
       <div class="results-actions">
         <button class="btn btn-primary" id="res-new">New Session</button>
         <button class="btn btn-secondary" id="res-dash">Dashboard</button>
       </div></div>`;
+
+    // Load and display raw layer metrics for this session
+    if (this.currentSessionId) {
+      const lms = await db.getLayerMetrics(this.currentSessionId);
+      const l0 = lms.find(m => m.layer === 0), l1 = lms.find(m => m.layer === 1);
+      const l2 = lms.find(m => m.layer === 2), l3 = lms.find(m => m.layer === 3);
+      const f = (v: number|undefined, u='') => v != null ? `${v.toFixed(1)}${u}` : '\u2014';
+
+      const rawSection = document.createElement('div');
+      rawSection.style.cssText = 'margin-top:1.5rem';
+      rawSection.innerHTML = `
+        <h3 style="text-align:center;margin-bottom:1rem;font-size:1rem;color:#666">Raw Measurements</h3>
+        ${l0?`<div style="margin-bottom:.75rem"><strong style="font-size:.85rem;color:#555">Layer 0 — Reaction Time</strong><div class="score-grid" style="margin-top:.5rem">
+          <div class="score-card"><div class="label">Mean Reaction Time</div><div class="value">${f(l0.meanRT,'ms')}</div></div>
+          <div class="score-card"><div class="label">RT Std Dev</div><div class="value">${f(l0.rtStd,'ms')}</div></div></div></div>`:''}
+        ${l1?`<div style="margin-bottom:.75rem"><strong style="font-size:.85rem;color:#555">Layer 1 — Tracking</strong><div class="score-grid" style="margin-top:.5rem">
+          <div class="score-card"><div class="label">Tracking Error</div><div class="value">${f(l1.meanTrackingError,'px')}</div></div>
+          <div class="score-card"><div class="label">Overshoots/min</div><div class="value">${f(l1.overshootRate)}</div></div></div></div>`:''}
+        ${l2?`<div style="margin-bottom:.75rem"><strong style="font-size:.85rem;color:#555">Layer 2 — Track + Audio</strong><div class="score-grid" style="margin-top:.5rem">
+          <div class="score-card"><div class="label">Tracking Error</div><div class="value">${f(l2.meanTrackingError,'px')}</div></div>
+          <div class="score-card"><div class="label">Audio Response</div><div class="value">${f(l2.meanAudioRT,'ms')}</div></div>
+          <div class="score-card"><div class="label">Audio Accuracy</div><div class="value">${l2.audioAccuracy!=null?(l2.audioAccuracy*100).toFixed(0)+'%':'\u2014'}</div></div>
+          <div class="score-card"><div class="label">Recovery Period</div><div class="value">${f(l2.meanPRPDuration,'ms')}</div></div></div></div>`:''}
+        ${l3?`<div style="margin-bottom:.75rem"><strong style="font-size:.85rem;color:#555">Layer 3 — Full Load</strong><div class="score-grid" style="margin-top:.5rem">
+          <div class="score-card"><div class="label">Tracking Error</div><div class="value">${f(l3.meanTrackingError,'px')}</div></div>
+          <div class="score-card"><div class="label">Audio Response</div><div class="value">${f(l3.meanAudioRT,'ms')}</div></div>
+          <div class="score-card"><div class="label">Cooldown Delay</div><div class="value">${f(l3.meanCooldownDelay,'ms')}</div></div>
+          <div class="score-card"><div class="label">Peripheral Response</div><div class="value">${f(l3.meanPeripheralRT,'ms')}</div></div>
+          <div class="score-card"><div class="label">Peripheral Missed</div><div class="value">${l3.peripheralMissRate!=null?(l3.peripheralMissRate*100).toFixed(0)+'%':'\u2014'}</div></div></div></div>`:''}
+      `;
+      const resultsContainer = this.contentContainer.querySelector('.results-container');
+      const actionsDiv = this.contentContainer.querySelector('.results-actions');
+      if (resultsContainer && actionsDiv) resultsContainer.insertBefore(rawSection, actionsDiv);
+    }
     document.getElementById('res-new')?.addEventListener('click', () => this.showState('checkin'));
     document.getElementById('res-dash')?.addEventListener('click', () => this.showState('dashboard'));
   }
@@ -270,10 +324,10 @@ export class MainApp {
       <h2>Session History</h2>
       <p class="dash-sub">${sessions.length} session${sessions.length!==1?'s':''} recorded</p>
       ${allTags.length > 0 ? `<div class="tag-bar" id="tag-bar"><span style="font-size:.82rem;color:#888;margin-right:.25rem">Filter:</span><span class="tag-chip active" data-tag="">All</span>${allTags.map(t => `<span class="tag-chip" data-tag="${t}">${t}</span>`).join('')}</div>` : ''}
-      ${sessions.length >= 2 ? `<div class="trend-section"><div class="trend-header"><h3>Performance Trend</h3><div class="trend-toggles" id="trend-toggles"><button class="trend-btn active" data-metric="crs">CRS</button><button class="trend-btn" data-metric="lpi0">LPI 0</button><button class="trend-btn" data-metric="lpi1">LPI 1</button><button class="trend-btn" data-metric="lpi2">LPI 2</button><button class="trend-btn" data-metric="lpi3">LPI 3</button><button class="trend-btn" data-metric="dc">DC</button></div></div><div id="trend-chart"></div></div>` : ''}
+      ${sessions.length >= 2 ? `<div class="trend-section"><div class="trend-header"><h3>Performance Trend</h3><div class="trend-toggles" id="trend-toggles"><button class="trend-btn active" data-metric="crs">Readiness</button><button class="trend-btn" data-metric="lpi0">Reaction</button><button class="trend-btn" data-metric="lpi1">Tracking</button><button class="trend-btn" data-metric="lpi2">Audio</button><button class="trend-btn" data-metric="lpi3">Full Load</button><button class="trend-btn" data-metric="dc">Tolerance</button></div></div><div id="trend-chart"></div></div>` : ''}
       <div id="insights-target"></div>
       ${sessions.length === 0 ? '<div class="empty-state"><p style="font-size:2rem">\ud83d\udcca</p><p>No sessions yet.</p></div>' :
-        `<table class="session-table"><thead><tr><th style="width:28px"></th><th>Date</th><th>CRS</th><th>L0</th><th>L1</th><th>L2</th><th>L3</th><th>DC</th><th>Tags</th></tr></thead>
+        `<table class="session-table"><thead><tr><th style="width:28px"></th><th>Date</th><th>Readiness</th><th>Reaction</th><th>Tracking</th><th>Audio</th><th>Full Load</th><th>Tolerance</th><th>Tags</th></tr></thead>
         <tbody id="session-tbody">${sessions.map(s => `<tr class="clickable" data-sid="${s.id}"><td><input type="checkbox" class="cb-compare" data-id="${s.id}"></td><td>${s.timestamp.toLocaleDateString()} ${s.timestamp.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td><td><span class="crs-pill ${this.crsClass(s.crs)}">${s.crs?.toFixed(1)??'\u2014'}</span></td><td>${s.lpi0?.toFixed(0)??'\u2014'}</td><td>${s.lpi1?.toFixed(0)??'\u2014'}</td><td>${s.lpi2?.toFixed(0)??'\u2014'}</td><td>${s.lpi3?.toFixed(0)??'\u2014'}</td><td>${s.degradationCoeff!=null?(s.degradationCoeff*100).toFixed(0)+'%':'\u2014'}</td><td>${s.tags.map(t=>`<span class="tag-chip" style="font-size:.68rem;padding:.1rem .35rem">${t}</span>`).join(' ')}</td></tr>`).join('')}</tbody></table>`}
       <div id="compare-target"></div><div id="detail-target"></div>
       <div class="dash-actions"><button class="btn btn-primary" id="dash-new">New Session</button><button class="btn btn-secondary" id="dash-cmp" style="display:none">Compare Selected</button><button class="btn btn-secondary" id="dash-exp">Export All CSV</button>${sessions.length>0?'<button class="btn btn-danger" id="dash-rst">Delete All</button>':''}</div></div>`;
@@ -334,19 +388,20 @@ export class MainApp {
     target.innerHTML = `<div class="detail-panel"><div class="detail-header"><h3>Session Details</h3><span style="color:#888;font-size:.82rem">${session.timestamp.toLocaleString()} \u00b7 ${session.id.slice(0,8)}</span></div>
       ${checkin ? `<div style="margin-bottom:1rem;padding:.7rem;background:var(--card,#fff);border-radius:10px;font-size:.82rem;color:#666"><strong>Check-in:</strong> Sleep ${checkin.sleepQuality??'?'}/5 \u00b7 State ${checkin.currentState??'?'}/5 \u00b7 Stress ${checkin.stressLevel??'?'}/5${checkin.symptomLabel?` \u00b7 ${checkin.symptomLabel} (${checkin.symptomSeverity}/3)`:''}${checkin.substances?.length?` \u00b7 ${checkin.substances.join(', ')}`:''}${checkin.freeNotes?` \u00b7 "${checkin.freeNotes}"`:''}</div>` : ''}
       <div class="detail-grid">
-        <div class="detail-card"><div class="label">CRS</div><div class="value" style="color:${session.crs!=null&&session.crs>=70?'#2e7d32':session.crs!=null&&session.crs>=40?'#e65100':'#c62828'}">${session.crs?.toFixed(1)??'\u2014'}</div></div>
-        <div class="detail-card"><div class="label">LPI L0</div><div class="value">${session.lpi0?.toFixed(1)??'\u2014'}</div></div>
-        <div class="detail-card"><div class="label">LPI L1</div><div class="value">${session.lpi1?.toFixed(1)??'\u2014'}</div></div>
-        <div class="detail-card"><div class="label">LPI L2</div><div class="value">${session.lpi2?.toFixed(1)??'\u2014'}</div></div>
-        <div class="detail-card"><div class="label">LPI L3</div><div class="value">${session.lpi3?.toFixed(1)??'\u2014'}</div></div>
-        <div class="detail-card"><div class="label">DC</div><div class="value">${session.degradationCoeff!=null?(session.degradationCoeff*100).toFixed(0)+'%':'\u2014'}</div></div>
+        <div class="detail-card"><div class="label">Cognitive Readiness</div><div class="value" style="color:${session.crs!=null&&session.crs>=70?'#2e7d32':session.crs!=null&&session.crs>=40?'#e65100':'#c62828'}">${session.crs?.toFixed(1)??'\u2014'}</div></div>
+        <div class="detail-card"><div class="label">Reaction Time (L0)</div><div class="value">${session.lpi0?.toFixed(1)??'\u2014'}</div></div>
+        <div class="detail-card"><div class="label">Tracking (L1)</div><div class="value">${session.lpi1?.toFixed(1)??'\u2014'}</div></div>
+        <div class="detail-card"><div class="label">Track + Audio (L2)</div><div class="value">${session.lpi2?.toFixed(1)??'\u2014'}</div></div>
+        <div class="detail-card"><div class="label">Full Load (L3)</div><div class="value">${session.lpi3?.toFixed(1)??'\u2014'}</div></div>
+        <div class="detail-card"><div class="label">Load Tolerance</div><div class="value">${session.degradationCoeff!=null?(session.degradationCoeff*100).toFixed(0)+'%':'\u2014'}</div></div>
       </div>
       <div class="detail-metrics">
-        ${l0?`<h4>L0 \u2014 Simple RT</h4><div class="metrics-row"><div class="metric-item"><div class="m-label">Mean RT</div><div class="m-val">${f(l0.meanRT,'ms')}</div></div><div class="metric-item"><div class="m-label">RT Std</div><div class="m-val">${f(l0.rtStd,'ms')}</div></div><div class="metric-item"><div class="m-label">Anticipations</div><div class="m-val">${l0.anticipationCount??0}</div></div><div class="metric-item"><div class="m-label">Lapses</div><div class="m-val">${l0.lapseCount??0}</div></div></div>`:''}
-        ${l1?`<h4>L1 \u2014 Tracking</h4><div class="metrics-row"><div class="metric-item"><div class="m-label">Error</div><div class="m-val">${f(l1.meanTrackingError,'px')}</div></div><div class="metric-item"><div class="m-label">Jerk</div><div class="m-val">${f(l1.meanJerk)}</div></div><div class="metric-item"><div class="m-label">Overshoot/min</div><div class="m-val">${f(l1.overshootRate)}</div></div></div>`:''}
-        ${l2?`<h4>L2 \u2014 Track+Audio</h4><div class="metrics-row"><div class="metric-item"><div class="m-label">Error</div><div class="m-val">${f(l2.meanTrackingError,'px')}</div></div><div class="metric-item"><div class="m-label">Audio RT</div><div class="m-val">${f(l2.meanAudioRT,'ms')}</div></div><div class="metric-item"><div class="m-label">Accuracy</div><div class="m-val">${l2.audioAccuracy!=null?(l2.audioAccuracy*100).toFixed(0)+'%':'\u2014'}</div></div><div class="metric-item"><div class="m-label">PRP</div><div class="m-val">${f(l2.meanPRPDuration,'ms')}</div></div></div>`:''}
-        ${l3?`<h4>L3 \u2014 Full Load</h4><div class="metrics-row"><div class="metric-item"><div class="m-label">Error</div><div class="m-val">${f(l3.meanTrackingError,'px')}</div></div><div class="metric-item"><div class="m-label">Audio RT</div><div class="m-val">${f(l3.meanAudioRT,'ms')}</div></div><div class="metric-item"><div class="m-label">PRP</div><div class="m-val">${f(l3.meanPRPDuration,'ms')}</div></div><div class="metric-item"><div class="m-label">Cooldown</div><div class="m-val">${f(l3.meanCooldownDelay,'ms')}</div></div><div class="metric-item"><div class="m-label">Periph RT</div><div class="m-val">${f(l3.meanPeripheralRT,'ms')}</div></div><div class="metric-item"><div class="m-label">Periph Miss</div><div class="m-val">${l3.peripheralMissRate!=null?(l3.peripheralMissRate*100).toFixed(0)+'%':'\u2014'}</div></div></div>`:''}
+        ${l0?`<h4>Layer 0 — Reaction Time</h4><div class="metrics-row"><div class="metric-item"><div class="m-label">Mean Reaction Time</div><div class="m-val">${f(l0.meanRT,'ms')}</div></div><div class="metric-item"><div class="m-label">RT Std Dev</div><div class="m-val">${f(l0.rtStd,'ms')}</div></div><div class="metric-item"><div class="m-label">Anticipations</div><div class="m-val">${l0.anticipationCount??0}</div></div><div class="metric-item"><div class="m-label">Lapses</div><div class="m-val">${l0.lapseCount??0}</div></div></div>`:''}
+        ${l1?`<h4>Layer 1 — Visual Tracking</h4><div class="metrics-row"><div class="metric-item"><div class="m-label">Tracking Error</div><div class="m-val">${f(l1.meanTrackingError,'px')}</div></div><div class="metric-item"><div class="m-label">Movement Jerk</div><div class="m-val">${f(l1.meanJerk)}</div></div><div class="metric-item"><div class="m-label">Overshoots/min</div><div class="m-val">${f(l1.overshootRate)}</div></div></div>`:''}
+        ${l2?`<h4>Layer 2 — Tracking + Audio</h4><div class="metrics-row"><div class="metric-item"><div class="m-label">Tracking Error</div><div class="m-val">${f(l2.meanTrackingError,'px')}</div></div><div class="metric-item"><div class="m-label">Audio Response</div><div class="m-val">${f(l2.meanAudioRT,'ms')}</div></div><div class="metric-item"><div class="m-label">Audio Accuracy</div><div class="m-val">${l2.audioAccuracy!=null?(l2.audioAccuracy*100).toFixed(0)+'%':'\u2014'}</div></div><div class="metric-item"><div class="m-label">Recovery Period</div><div class="m-val">${f(l2.meanPRPDuration,'ms')}</div></div></div>`:''}
+        ${l3?`<h4>Layer 3 — Full Cognitive Load</h4><div class="metrics-row"><div class="metric-item"><div class="m-label">Tracking Error</div><div class="m-val">${f(l3.meanTrackingError,'px')}</div></div><div class="metric-item"><div class="m-label">Audio Response</div><div class="m-val">${f(l3.meanAudioRT,'ms')}</div></div><div class="metric-item"><div class="m-label">Recovery Period</div><div class="m-val">${f(l3.meanPRPDuration,'ms')}</div></div><div class="metric-item"><div class="m-label">Cooldown Delay</div><div class="m-val">${f(l3.meanCooldownDelay,'ms')}</div></div><div class="metric-item"><div class="m-label">Peripheral Response</div><div class="m-val">${f(l3.meanPeripheralRT,'ms')}</div></div><div class="metric-item"><div class="m-label">Peripheral Missed</div><div class="m-val">${l3.peripheralMissRate!=null?(l3.peripheralMissRate*100).toFixed(0)+'%':'\u2014'}</div></div></div>`:''}
       </div>
+      <div style="margin-top:1.1rem"><div id="degradation-chart-${sid}" style="width:100%;height:200px"></div></div>
       <div style="margin-top:1.1rem"><label style="font-size:.82rem;font-weight:600;color:#555;display:block;margin-bottom:.35rem">Notes</label>
         <textarea class="notes-area" id="d-notes" placeholder="Add notes...">${session.notes||''}</textarea>
         <button class="btn btn-sm btn-secondary" id="save-notes" style="margin-top:.3rem">Save Notes</button></div>
@@ -362,6 +417,9 @@ export class MainApp {
       const n = (document.getElementById('d-notes') as HTMLTextAreaElement).value;
       await db.updateSessionNotes(sid, n); session.notes = n;
     });
+
+    // Render degradation curve chart
+    this.renderDegradationCurve(sid, session);
     document.getElementById('d-tags')?.addEventListener('click', async e => {
       const rm = (e.target as HTMLElement).closest('.rm-tag') as HTMLElement;
       if (rm) { await db.removeSessionTag(sid, rm.dataset.tag!); session.tags = session.tags.filter(t=>t!==rm.dataset.tag); this.showSessionDetail(sid, sessions); }
@@ -439,20 +497,83 @@ export class MainApp {
     target.innerHTML = `<div class="compare-panel"><div class="detail-header"><h3>Session Comparison</h3><button class="btn btn-sm btn-secondary" id="close-cmp">Close</button></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
         <div><h4 style="text-align:center;margin-bottom:.6rem;font-size:.9rem">${dt(s1)}</h4>
-          ${cmp('CRS',s1.crs,s2.crs,'',false)}${cmp('DC',s1.degradationCoeff!=null?s1.degradationCoeff*100:null,s2.degradationCoeff!=null?s2.degradationCoeff*100:null,'%',false)}
-          ${cmp('LPI 0',s1.lpi0,s2.lpi0,'',false)}${cmp('LPI 3',s1.lpi3,s2.lpi3,'',false)}
-          ${cmp('Mean RT',l0a?.meanRT,l0b?.meanRT,'ms')}${cmp('Track Err',l1a?.meanTrackingError,l1b?.meanTrackingError,'px')}
-          ${cmp('Audio RT',l2a?.meanAudioRT,l2b?.meanAudioRT,'ms')}${cmp('PRP',l2a?.meanPRPDuration,l2b?.meanPRPDuration,'ms')}
-          ${cmp('Periph RT',l3a?.meanPeripheralRT,l3b?.meanPeripheralRT,'ms')}</div>
+          ${cmp('Readiness',s1.crs,s2.crs,'',false)}${cmp('Tolerance',s1.degradationCoeff!=null?s1.degradationCoeff*100:null,s2.degradationCoeff!=null?s2.degradationCoeff*100:null,'%',false)}
+          ${cmp('Reaction (L0)',s1.lpi0,s2.lpi0,'',false)}${cmp('Full Load (L3)',s1.lpi3,s2.lpi3,'',false)}
+          ${cmp('Mean RT',l0a?.meanRT,l0b?.meanRT,'ms')}${cmp('Track Error',l1a?.meanTrackingError,l1b?.meanTrackingError,'px')}
+          ${cmp('Audio Response',l2a?.meanAudioRT,l2b?.meanAudioRT,'ms')}${cmp('Recovery Period',l2a?.meanPRPDuration,l2b?.meanPRPDuration,'ms')}
+          ${cmp('Peripheral RT',l3a?.meanPeripheralRT,l3b?.meanPeripheralRT,'ms')}</div>
         <div><h4 style="text-align:center;margin-bottom:.6rem;font-size:.9rem">${dt(s2)}</h4>
-          ${cmp('CRS',s2.crs,s1.crs,'',false)}${cmp('DC',s2.degradationCoeff!=null?s2.degradationCoeff*100:null,s1.degradationCoeff!=null?s1.degradationCoeff*100:null,'%',false)}
-          ${cmp('LPI 0',s2.lpi0,s1.lpi0,'',false)}${cmp('LPI 3',s2.lpi3,s1.lpi3,'',false)}
-          ${cmp('Mean RT',l0b?.meanRT,l0a?.meanRT,'ms')}${cmp('Track Err',l1b?.meanTrackingError,l1a?.meanTrackingError,'px')}
-          ${cmp('Audio RT',l2b?.meanAudioRT,l2a?.meanAudioRT,'ms')}${cmp('PRP',l2b?.meanPRPDuration,l2a?.meanPRPDuration,'ms')}
-          ${cmp('Periph RT',l3b?.meanPeripheralRT,l3a?.meanPeripheralRT,'ms')}</div>
+          ${cmp('Readiness',s2.crs,s1.crs,'',false)}${cmp('Tolerance',s2.degradationCoeff!=null?s2.degradationCoeff*100:null,s1.degradationCoeff!=null?s1.degradationCoeff*100:null,'%',false)}
+          ${cmp('Reaction (L0)',s2.lpi0,s1.lpi0,'',false)}${cmp('Full Load (L3)',s2.lpi3,s1.lpi3,'',false)}
+          ${cmp('Mean RT',l0b?.meanRT,l0a?.meanRT,'ms')}${cmp('Track Error',l1b?.meanTrackingError,l1a?.meanTrackingError,'px')}
+          ${cmp('Audio Response',l2b?.meanAudioRT,l2a?.meanAudioRT,'ms')}${cmp('Recovery Period',l2b?.meanPRPDuration,l2a?.meanPRPDuration,'ms')}
+          ${cmp('Peripheral RT',l3b?.meanPeripheralRT,l3a?.meanPeripheralRT,'ms')}</div>
       </div></div>`;
     document.getElementById('close-cmp')?.addEventListener('click', () => { target.innerHTML = ''; });
     target.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+
+  // === DEGRADATION CURVE (per-session detail) ===
+  private renderDegradationCurve(sid: string, session: Session): void {
+    const container = document.getElementById(`degradation-chart-${sid}`);
+    if (!container) return;
+    container.innerHTML = '';
+
+    const data = [
+      { layer: 0, lpi: session.lpi0 ?? 0, label: 'Reaction' },
+      { layer: 1, lpi: session.lpi1 ?? 0, label: 'Tracking' },
+      { layer: 2, lpi: session.lpi2 ?? 0, label: 'Audio' },
+      { layer: 3, lpi: session.lpi3 ?? 0, label: 'Full Load' }
+    ];
+
+    const rect = container.getBoundingClientRect();
+    const W = rect.width || 500, H = 200;
+    const mg = { top: 20, right: 25, bottom: 35, left: 42 };
+    const iW = W - mg.left - mg.right, iH = H - mg.top - mg.bottom;
+
+    const svg = d3.select(container).append('svg').attr('viewBox', `0 0 ${W} ${H}`);
+    const g = svg.append('g').attr('transform', `translate(${mg.left},${mg.top})`);
+
+    const xS = d3.scalePoint<string>().domain(data.map(d => d.label)).range([0, iW]).padding(0.3);
+    const yS = d3.scaleLinear().domain([0, 100]).range([iH, 0]);
+
+    // Grid
+    g.append('g').attr('class', 'chart-grid').call(d3.axisLeft(yS).ticks(4).tickSize(-iW).tickFormat(() => ''));
+
+    // Area fill
+    const area = d3.area<typeof data[0]>()
+      .x(d => xS(d.label)!)
+      .y0(iH)
+      .y1(d => yS(d.lpi))
+      .curve(d3.curveMonotoneX);
+    g.append('path').datum(data).attr('fill', '#2196f3').attr('opacity', 0.08).attr('d', area);
+
+    // Line
+    const line = d3.line<typeof data[0]>()
+      .x(d => xS(d.label)!)
+      .y(d => yS(d.lpi))
+      .curve(d3.curveMonotoneX);
+    g.append('path').datum(data).attr('fill', 'none').attr('stroke', '#2196f3').attr('stroke-width', 2.5).attr('d', line);
+
+    // Points with values
+    g.selectAll('.deg-dot').data(data).join('circle')
+      .attr('cx', d => xS(d.label)!).attr('cy', d => yS(d.lpi)).attr('r', 4.5)
+      .attr('fill', d => d.lpi >= 60 ? '#4caf50' : d.lpi >= 30 ? '#ff9800' : '#f44336')
+      .attr('stroke', '#fff').attr('stroke-width', 2);
+
+    g.selectAll('.deg-val').data(data).join('text')
+      .attr('x', d => xS(d.label)!).attr('y', d => yS(d.lpi) - 10)
+      .attr('text-anchor', 'middle').style('font-size', '11px').style('font-weight', '600')
+      .style('fill', 'var(--text, #333)')
+      .text(d => d.lpi.toFixed(0));
+
+    // Axes
+    g.append('g').attr('transform', `translate(0,${iH})`).call(d3.axisBottom(xS)).selectAll('text').style('font-size', '10px');
+    g.append('g').call(d3.axisLeft(yS).ticks(4)).selectAll('text').style('font-size', '10px');
+
+    // Title
+    g.append('text').attr('x', iW / 2).attr('y', -6).attr('text-anchor', 'middle')
+      .style('font-size', '11px').style('fill', '#888').text('Performance Degradation Under Load');
   }
 
   // === TREND CHART (D3) ===
@@ -468,7 +589,7 @@ export class MainApp {
       if (v != null) data.push({date:s.timestamp,value:v});
     }
     if (data.length < 1) { container.innerHTML = '<p style="text-align:center;color:#999;padding:2rem">No data.</p>'; return; }
-    const labels: Record<string,string> = {crs:'CRS',lpi0:'LPI 0',lpi1:'LPI 1',lpi2:'LPI 2',lpi3:'LPI 3',dc:'DC %'};
+    const labels: Record<string,string> = {crs:'Cognitive Readiness',lpi0:'Reaction Time (L0)',lpi1:'Tracking (L1)',lpi2:'Track + Audio (L2)',lpi3:'Full Load (L3)',dc:'Load Tolerance %'};
     const color = metric === 'dc' ? '#ff9800' : '#2196f3';
     const rect = container.getBoundingClientRect();
     const W = rect.width||800, H = 230, mg = {top:18,right:25,bottom:32,left:42};

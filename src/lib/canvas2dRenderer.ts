@@ -5,6 +5,7 @@
 
 import type { SessionConfig, StimulusState, TestState, InterLayerInfo } from '@/types';
 import { TestEngine } from '@/lib/testEngine';
+import { getAudioManager } from '@/lib/audioManager';
 
 export class Canvas2DRenderer {
   private container: HTMLElement;
@@ -18,6 +19,7 @@ export class Canvas2DRenderer {
   private cursorY: number;
   private lastStimulus: StimulusState | null = null;
   private lastState: TestState | null = null;
+  private lastPlayedAudioCueTime: number = 0;  // Track last played audio cue to avoid replays
   private overlay: HTMLDivElement | null = null;
 
   private boundMouseMove: (e: MouseEvent) => void;
@@ -59,6 +61,17 @@ export class Canvas2DRenderer {
   updateFromEngine(stim: StimulusState, state: TestState): void {
     this.lastStimulus = stim;
     this.lastState = state;
+
+    // Play audio cue if a new one was emitted (same logic as PixiJS renderer)
+    if (stim.lastAudioCue) {
+      const cueAge = performance.now() - stim.lastAudioCue.onsetTime;
+      if (cueAge < 50 && stim.lastAudioCue.onsetTime !== this.lastPlayedAudioCueTime) {
+        this.lastPlayedAudioCueTime = stim.lastAudioCue.onsetTime;
+        try {
+          getAudioManager().play(stim.lastAudioCue.tone);
+        } catch { /* audio not ready */ }
+      }
+    }
   }
 
   private render(): void {
