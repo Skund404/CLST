@@ -88,6 +88,15 @@ export class TestEngine {
   private targetRadius = 30;
   private targetSpeed = 200;
 
+  // Smooth steering: target angle interpolation instead of instant direction snaps
+  // This prevents artificial jerk spikes from instantaneous velocity discontinuities
+  private currentAngle: number = 0;        // Current movement direction (radians)
+  private goalAngle: number = 0;           // Target direction to steer toward
+  private isSteeringToGoal: boolean = false;
+  // Turn rate in radians/sec — controls how fast the target changes direction
+  // ~3 rad/s means a full 180° turn takes ~1 second, producing smooth arcs
+  private static readonly TARGET_TURN_RATE = 3.0;
+
   // Cooldown state (Layer 3)
   private cooldownInterval = 8000;
   private cooldownStartTime = 0;
@@ -374,6 +383,9 @@ export class TestEngine {
     const centerY = this.config.monitorResolution.height / 2;
     this.targetPosition = { x: centerX, y: centerY };
     const angle = Math.random() * 2 * Math.PI;
+    this.currentAngle = angle;
+    this.goalAngle = angle;
+    this.isSteeringToGoal = false;
     this.targetVelocity = {
       vx: Math.cos(angle) * this.targetSpeed,
       vy: Math.sin(angle) * this.targetSpeed
@@ -500,35 +512,75 @@ export class TestEngine {
   }
 
   // =========================================================================
-  // TARGET MOVEMENT (frame-rate independent)
+  // TARGET MOVEMENT (frame-rate independent, smooth steering)
   // =========================================================================
 
+  /**
+   * Normalize angle to [-PI, PI] range
+   */
+  private normalizeAngle(a: number): number {
+    while (a > Math.PI) a -= 2 * Math.PI;
+    while (a < -Math.PI) a += 2 * Math.PI;
+    return a;
+  }
+
   private updateTargetPosition(deltaTime: number): void {
+    // --- Smooth steering: interpolate current angle toward goal angle ---
+    if (this.isSteeringToGoal) {
+      let angleDiff = this.normalizeAngle(this.goalAngle - this.currentAngle);
+      const maxTurn = TestEngine.TARGET_TURN_RATE * deltaTime;
+
+      if (Math.abs(angleDiff) <= maxTurn) {
+        // Close enough — snap to goal and stop steering
+        this.currentAngle = this.goalAngle;
+        this.isSteeringToGoal = false;
+      } else {
+        // Steer toward goal at constant angular velocity
+        this.currentAngle += Math.sign(angleDiff) * maxTurn;
+        this.currentAngle = this.normalizeAngle(this.currentAngle);
+      }
+
+      // Update velocity from current angle
+      this.targetVelocity.vx = Math.cos(this.currentAngle) * this.targetSpeed;
+      this.targetVelocity.vy = Math.sin(this.currentAngle) * this.targetSpeed;
+    }
+
+    // --- Move target ---
     this.targetPosition.x += this.targetVelocity.vx * deltaTime;
     this.targetPosition.y += this.targetVelocity.vy * deltaTime;
 
-    // Bounce off edges
+    // --- Bounce off edges (smooth: reflect the goal angle too) ---
     const { width, height } = this.config.monitorResolution;
     const margin = this.targetRadius;
 
     if (this.targetPosition.x <= margin || this.targetPosition.x >= width - margin) {
       this.targetVelocity.vx *= -1;
+      this.currentAngle = Math.atan2(this.targetVelocity.vy, this.targetVelocity.vx);
+      // If we were steering to a goal, reflect that goal too
+      if (this.isSteeringToGoal) {
+        this.goalAngle = Math.PI - this.goalAngle;
+        this.goalAngle = this.normalizeAngle(this.goalAngle);
+      }
       this.targetPosition.x = Math.max(margin, Math.min(width - margin, this.targetPosition.x));
     }
     if (this.targetPosition.y <= margin || this.targetPosition.y >= height - margin) {
       this.targetVelocity.vy *= -1;
+      this.currentAngle = Math.atan2(this.targetVelocity.vy, this.targetVelocity.vx);
+      if (this.isSteeringToGoal) {
+        this.goalAngle = -this.goalAngle;
+        this.goalAngle = this.normalizeAngle(this.goalAngle);
+      }
       this.targetPosition.y = Math.max(margin, Math.min(height - margin, this.targetPosition.y));
     }
 
-    // Frame-rate independent direction changes (FIX: was per-frame random)
-    // Probability = 1 - (1 - rate)^dt, approximated for small dt as rate * dt
+    // --- Trigger new direction changes (frame-rate independent) ---
+    // When triggered, set a new goal angle — steering handles the smooth transition
     const changeProbability = 1 - Math.pow(
       1 - TestEngine.TARGET_DIRECTION_CHANGE_RATE, deltaTime
     );
-    if (Math.random() < changeProbability) {
-      const angle = Math.random() * 2 * Math.PI;
-      this.targetVelocity.vx = Math.cos(angle) * this.targetSpeed;
-      this.targetVelocity.vy = Math.sin(angle) * this.targetSpeed;
+    if (Math.random() < changeProbability && !this.isSteeringToGoal) {
+      this.goalAngle = Math.random() * 2 * Math.PI;
+      this.isSteeringToGoal = true;
     }
 
     // Update stimulus state

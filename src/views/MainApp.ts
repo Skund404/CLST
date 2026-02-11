@@ -201,17 +201,36 @@ export class MainApp {
     const ev = this.testEngine.getEvents(), st = this.testEngine.getSystemStallCount(), dur = [30,45,45,60];
     const lm: LayerMetrics[] = [];
     for (let l=0;l<=3;l++) lm.push(MetricsCalculator.computeLayerMetrics(this.currentSessionId,l,ev.filter(e=>e.layer===l),dur[l],this.sessionConfig.monitorRefreshRate));
-    const bl = new Map<string,BaselineStats>();
-    const mn = ['rt','rt_variance','track_error','track_variance','jerk','overshoot','audio_rt','audio_accuracy','prp','cooldown','periph_rt','periph_miss'];
-    for (const n of mn) for (let l=0;l<=3;l++) { const b = await db.getBaseline('rolling',n,l); if (b) bl.set(`${n}_L${l}`,b); }
-    const cb = await db.getBaseline('rolling','crs',null); if (cb) bl.set('crs',cb);
-    const wp = await db.getWeightProfile('balanced') || this.defaultWP();
-    const sc = ScoringEngine.computeSessionScores(lm,bl,wp);
+
+    // Check session count to determine calibration status
+    const sessionCount = await db.getSessionCount(); // count BEFORE saving this one
+    const isCalibrating = sessionCount < 5; // sessions 0-4 (this will be sessions 1-5)
+
+    let sc: { lpi0: number|null; lpi1: number|null; lpi2: number|null; lpi3: number|null; dc: number|null; crs: number|null; alert: 'critical'|'warning'|null };
+
+    if (isCalibrating) {
+      // Section 11.1: During calibration, don't compute composite scores
+      // They're meaningless without a baseline and mislead the user
+      sc = { lpi0: null, lpi1: null, lpi2: null, lpi3: null, dc: null, crs: null, alert: null };
+    } else {
+      const bl = new Map<string,BaselineStats>();
+      const mn = ['rt','rt_variance','track_error','track_variance','jerk','overshoot','audio_rt','audio_accuracy','prp','cooldown','periph_rt','periph_miss'];
+      for (const n of mn) for (let l=0;l<=3;l++) { const b = await db.getBaseline('rolling',n,l); if (b) bl.set(`${n}_L${l}`,b); }
+      const cb = await db.getBaseline('rolling','crs',null); if (cb) bl.set('crs',cb);
+      const wp = await db.getWeightProfile('balanced') || this.defaultWP();
+      sc = ScoringEngine.computeSessionScores(lm,bl,wp);
+    }
+
     const sess: Session = {id:this.currentSessionId,timestamp:new Date(),configSnapshot:this.sessionConfig,
       lpi0:sc.lpi0,lpi1:sc.lpi1,lpi2:sc.lpi2,lpi3:sc.lpi3,degradationCoeff:sc.dc,crs:sc.crs,
       notes:null,tags:[],checkinId:this.currentCheckinId,profileId:'balanced',systemStalls:st};
     await db.saveSession(sess); for (const m of lm) await db.saveLayerMetrics(m); await db.saveRawEvents(ev);
-    for (const n of mn) for (let l=0;l<=3;l++) await db.updateRollingBaseline(n,l);
+
+    // Only update baselines for non-calibration sessions
+    if (!isCalibrating) {
+      const mn = ['rt','rt_variance','track_error','track_variance','jerk','overshoot','audio_rt','audio_accuracy','prp','cooldown','periph_rt','periph_miss'];
+      for (const n of mn) for (let l=0;l<=3;l++) await db.updateRollingBaseline(n,l);
+    }
   }
 
   // === RESULTS VIEW ===
@@ -227,26 +246,36 @@ export class MainApp {
     const sessionCount = await db.getSessionCount();
     const isCalibrating = sessionCount <= 5;
     const isPreBaseline = sessionCount > 5 && sessionCount <= 15;
+    const hasScores = s.crs != null;
+
     const statusNote = isCalibrating
-      ? `<p style="text-align:center;color:#ff9800;font-size:.9rem;margin-top:.5rem">⏳ Calibrating — Session ${sessionCount} of 5. Scores are preliminary and will become more accurate with more sessions.</p>`
+      ? `<p style="text-align:center;color:#ff9800;font-size:.9rem;margin-top:.5rem">⏳ Calibrating — Session ${sessionCount} of 5. Collecting baseline data — scores will appear after 5 sessions.</p>`
       : isPreBaseline
-      ? `<p style="text-align:center;color:#2196f3;font-size:.9rem;margin-top:.5rem">📊 Building baseline — ${sessionCount - 5} of 10 sessions toward full accuracy.</p>`
+      ? `<p style="text-align:center;color:#2196f3;font-size:.9rem;margin-top:.5rem">📊 Building baseline — ${sessionCount - 5} of 10 sessions toward full accuracy. Scores are preliminary.</p>`
       : '';
+
     this.contentContainer.innerHTML = `<div class="results-container">
       <h1 style="text-align:center">Session Complete</h1>
       <p style="text-align:center;color:#888">${s.timestamp.toLocaleString()}</p>
-      <div class="crs-big ${cc}">${s.crs != null ? s.crs.toFixed(1) : '\u2014'}</div>
-      <p style="text-align:center;color:#888">Cognitive Readiness Score${isCalibrating ? ' (Preliminary)' : ''}</p>
+      ${hasScores ? `
+        <div class="crs-big ${cc}">${s.crs!.toFixed(1)}</div>
+        <p style="text-align:center;color:#888">Cognitive Readiness Score${isPreBaseline ? ' (Preliminary)' : ''}</p>
+      ` : `
+        <div style="text-align:center;margin:1.5rem 0;padding:1.5rem;background:var(--surface-alt,#f5f5f5);border-radius:12px">
+          <p style="font-size:1.1rem;color:#666;margin-bottom:.5rem">Calibration Session ${sessionCount}</p>
+          <p style="font-size:.9rem;color:#999">Raw measurements recorded below. Composite scores require at least 5 sessions.</p>
+        </div>
+      `}
       ${statusNote}
       ${al ? `<p style="text-align:center;color:${al==='critical'?'#f44336':'#ff9800'};font-weight:600">\u26a0 ${al.toUpperCase()} \u2014 Below baseline</p>` : ''}
-      <div class="score-grid">
+      ${hasScores ? `<div class="score-grid">
         <div class="score-card"><div class="label">Reaction Time (Layer 0)</div><div class="value">${s.lpi0?.toFixed(1)??'\u2014'}</div></div>
         <div class="score-card"><div class="label">Tracking (Layer 1)</div><div class="value">${s.lpi1?.toFixed(1)??'\u2014'}</div></div>
         <div class="score-card"><div class="label">Track + Audio (Layer 2)</div><div class="value">${s.lpi2?.toFixed(1)??'\u2014'}</div></div>
         <div class="score-card"><div class="label">Full Load (Layer 3)</div><div class="value">${s.lpi3?.toFixed(1)??'\u2014'}</div></div>
         <div class="score-card"><div class="label">Load Tolerance</div><div class="value">${s.degradationCoeff!=null?(s.degradationCoeff*100).toFixed(0)+'%':'\u2014'}</div></div>
         <div class="score-card"><div class="label">System Stalls</div><div class="value">${s.systemStalls}</div></div>
-      </div>
+      </div>` : ''}
       <div class="results-actions">
         <button class="btn btn-primary" id="res-new">New Session</button>
         <button class="btn btn-secondary" id="res-dash">Dashboard</button>
@@ -328,7 +357,10 @@ export class MainApp {
       <div id="insights-target"></div>
       ${sessions.length === 0 ? '<div class="empty-state"><p style="font-size:2rem">\ud83d\udcca</p><p>No sessions yet.</p></div>' :
         `<table class="session-table"><thead><tr><th style="width:28px"></th><th>Date</th><th>Readiness</th><th>Reaction</th><th>Tracking</th><th>Audio</th><th>Full Load</th><th>Tolerance</th><th>Tags</th></tr></thead>
-        <tbody id="session-tbody">${sessions.map(s => `<tr class="clickable" data-sid="${s.id}"><td><input type="checkbox" class="cb-compare" data-id="${s.id}"></td><td>${s.timestamp.toLocaleDateString()} ${s.timestamp.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td><td><span class="crs-pill ${this.crsClass(s.crs)}">${s.crs?.toFixed(1)??'\u2014'}</span></td><td>${s.lpi0?.toFixed(0)??'\u2014'}</td><td>${s.lpi1?.toFixed(0)??'\u2014'}</td><td>${s.lpi2?.toFixed(0)??'\u2014'}</td><td>${s.lpi3?.toFixed(0)??'\u2014'}</td><td>${s.degradationCoeff!=null?(s.degradationCoeff*100).toFixed(0)+'%':'\u2014'}</td><td>${s.tags.map(t=>`<span class="tag-chip" style="font-size:.68rem;padding:.1rem .35rem">${t}</span>`).join(' ')}</td></tr>`).join('')}</tbody></table>`}
+        <tbody id="session-tbody">${sessions.map(s => {
+          const isCal = s.crs == null;
+          return `<tr class="clickable" data-sid="${s.id}"><td><input type="checkbox" class="cb-compare" data-id="${s.id}"></td><td>${s.timestamp.toLocaleDateString()} ${s.timestamp.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td><td>${isCal ? '<span class="crs-pill none">Cal.</span>' : `<span class="crs-pill ${this.crsClass(s.crs)}">${s.crs?.toFixed(1)??'\u2014'}</span>`}</td><td>${isCal?'—':s.lpi0?.toFixed(0)??'\u2014'}</td><td>${isCal?'—':s.lpi1?.toFixed(0)??'\u2014'}</td><td>${isCal?'—':s.lpi2?.toFixed(0)??'\u2014'}</td><td>${isCal?'—':s.lpi3?.toFixed(0)??'\u2014'}</td><td>${isCal?'—':s.degradationCoeff!=null?(s.degradationCoeff*100).toFixed(0)+'%':'\u2014'}</td><td>${s.tags.map(t=>`<span class="tag-chip" style="font-size:.68rem;padding:.1rem .35rem">${t}</span>`).join(' ')}</td></tr>`;
+        }).join('')}</tbody></table>`}
       <div id="compare-target"></div><div id="detail-target"></div>
       <div class="dash-actions"><button class="btn btn-primary" id="dash-new">New Session</button><button class="btn btn-secondary" id="dash-cmp" style="display:none">Compare Selected</button><button class="btn btn-secondary" id="dash-exp">Export All CSV</button>${sessions.length>0?'<button class="btn btn-danger" id="dash-rst">Delete All</button>':''}</div></div>`;
 
@@ -387,14 +419,14 @@ export class MainApp {
 
     target.innerHTML = `<div class="detail-panel"><div class="detail-header"><h3>Session Details</h3><span style="color:#888;font-size:.82rem">${session.timestamp.toLocaleString()} \u00b7 ${session.id.slice(0,8)}</span></div>
       ${checkin ? `<div style="margin-bottom:1rem;padding:.7rem;background:var(--card,#fff);border-radius:10px;font-size:.82rem;color:#666"><strong>Check-in:</strong> Sleep ${checkin.sleepQuality??'?'}/5 \u00b7 State ${checkin.currentState??'?'}/5 \u00b7 Stress ${checkin.stressLevel??'?'}/5${checkin.symptomLabel?` \u00b7 ${checkin.symptomLabel} (${checkin.symptomSeverity}/3)`:''}${checkin.substances?.length?` \u00b7 ${checkin.substances.join(', ')}`:''}${checkin.freeNotes?` \u00b7 "${checkin.freeNotes}"`:''}</div>` : ''}
-      <div class="detail-grid">
+      ${session.crs != null ? `<div class="detail-grid">
         <div class="detail-card"><div class="label">Cognitive Readiness</div><div class="value" style="color:${session.crs!=null&&session.crs>=70?'#2e7d32':session.crs!=null&&session.crs>=40?'#e65100':'#c62828'}">${session.crs?.toFixed(1)??'\u2014'}</div></div>
         <div class="detail-card"><div class="label">Reaction Time (L0)</div><div class="value">${session.lpi0?.toFixed(1)??'\u2014'}</div></div>
         <div class="detail-card"><div class="label">Tracking (L1)</div><div class="value">${session.lpi1?.toFixed(1)??'\u2014'}</div></div>
         <div class="detail-card"><div class="label">Track + Audio (L2)</div><div class="value">${session.lpi2?.toFixed(1)??'\u2014'}</div></div>
         <div class="detail-card"><div class="label">Full Load (L3)</div><div class="value">${session.lpi3?.toFixed(1)??'\u2014'}</div></div>
         <div class="detail-card"><div class="label">Load Tolerance</div><div class="value">${session.degradationCoeff!=null?(session.degradationCoeff*100).toFixed(0)+'%':'\u2014'}</div></div>
-      </div>
+      </div>` : `<div style="padding:.6rem;background:var(--card,#fff);border-radius:10px;margin-bottom:.75rem;text-align:center;color:#ff9800;font-size:.85rem">⏳ Calibration session — raw measurements only</div>`}
       <div class="detail-metrics">
         ${l0?`<h4>Layer 0 — Reaction Time</h4><div class="metrics-row"><div class="metric-item"><div class="m-label">Mean Reaction Time</div><div class="m-val">${f(l0.meanRT,'ms')}</div></div><div class="metric-item"><div class="m-label">RT Std Dev</div><div class="m-val">${f(l0.rtStd,'ms')}</div></div><div class="metric-item"><div class="m-label">Anticipations</div><div class="m-val">${l0.anticipationCount??0}</div></div><div class="metric-item"><div class="m-label">Lapses</div><div class="m-val">${l0.lapseCount??0}</div></div></div>`:''}
         ${l1?`<h4>Layer 1 — Visual Tracking</h4><div class="metrics-row"><div class="metric-item"><div class="m-label">Tracking Error</div><div class="m-val">${f(l1.meanTrackingError,'px')}</div></div><div class="metric-item"><div class="m-label">Movement Jerk</div><div class="m-val">${f(l1.meanJerk)}</div></div><div class="metric-item"><div class="m-label">Overshoots/min</div><div class="m-val">${f(l1.overshootRate)}</div></div></div>`:''}
@@ -518,6 +550,11 @@ export class MainApp {
     const container = document.getElementById(`degradation-chart-${sid}`);
     if (!container) return;
     container.innerHTML = '';
+
+    // Skip chart if session has no computed scores (calibration period)
+    if (session.lpi0 == null && session.lpi1 == null && session.lpi2 == null && session.lpi3 == null) {
+      return;
+    }
 
     const data = [
       { layer: 0, lpi: session.lpi0 ?? 0, label: 'Reaction' },
