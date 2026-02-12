@@ -31,16 +31,17 @@ export class AudioManager {
     distractor: '/assets/audio/tone_distractor.wav'
   };
 
-  // Tone frequencies for synthesis fallback
+  // Tone frequencies — wide separation for easy discrimination under load
+  // High: bright, high pitch. Low: deep, unmistakable. Distractor: mid-range buzz.
   private readonly TONE_FREQUENCIES: Record<ToneType, number> = {
-    high: 800,      // Hz - for Q key
-    low: 400,       // Hz - for E key
-    distractor: 600 // Hz - to be ignored
+    high: 1000,     // Hz - clearly high pitched
+    low: 300,       // Hz - clearly low pitched
+    distractor: 550 // Hz - mid-range, different character (uses square wave)
   };
 
   // Configuration
   private volume: number = 0.5;
-  private readonly TONE_DURATION = 0.15; // seconds
+  private readonly TONE_DURATION = 0.25; // seconds (was 0.15 — longer for better perception under load)
   private readonly MIN_TONE_SPACING = 0.05; // Prevent overlapping tones (50ms)
 
   /**
@@ -84,6 +85,10 @@ export class AudioManager {
 
   /**
    * Pre-synthesize all tone buffers so they're ready for instant playback
+   * Each tone uses a different waveform for easier discrimination:
+   * - High: sine wave (clean, bright)
+   * - Low: sine wave (clean, deep)
+   * - Distractor: square wave (buzzy, harsh — easy to recognize as "ignore this")
    */
   private preSynthesizeBuffers(): void {
     if (!this.audioContext) return;
@@ -95,11 +100,21 @@ export class AudioManager {
       const data = buffer.getChannelData(0);
 
       const fadeInDuration = 0.005;
-      const fadeOutDuration = 0.010;
+      const fadeOutDuration = 0.015;
+      const isDistractor = type === 'distractor';
 
       for (let i = 0; i < numSamples; i++) {
         const t = i / sampleRate;
-        const value = Math.sin(2 * Math.PI * frequency * t);
+
+        // Waveform: sine for signals, square for distractor
+        let value: number;
+        if (isDistractor) {
+          // Square wave — harsh buzz, instantly recognizable as different
+          value = Math.sin(2 * Math.PI * frequency * t) >= 0 ? 1.0 : -1.0;
+          value *= 0.6; // Reduce amplitude since square wave is perceptually louder
+        } else {
+          value = Math.sin(2 * Math.PI * frequency * t);
+        }
 
         let envelope = 1.0;
         if (t < fadeInDuration) {
@@ -192,21 +207,26 @@ export class AudioManager {
     const frequency = this.TONE_FREQUENCIES[type];
     const sampleRate = this.audioContext.sampleRate;
     const numSamples = Math.floor(this.TONE_DURATION * sampleRate);
+    const isDistractor = type === 'distractor';
 
     // Create audio buffer
     const buffer = this.audioContext.createBuffer(1, numSamples, sampleRate);
     const data = buffer.getChannelData(0);
 
-    // Generate sine wave with envelope
+    // Generate waveform with envelope
     for (let i = 0; i < numSamples; i++) {
       const t = i / sampleRate;
-      
-      // Sine wave
-      const value = Math.sin(2 * Math.PI * frequency * t);
-      
+
+      let value: number;
+      if (isDistractor) {
+        value = Math.sin(2 * Math.PI * frequency * t) >= 0 ? 0.6 : -0.6;
+      } else {
+        value = Math.sin(2 * Math.PI * frequency * t);
+      }
+
       // Apply envelope (fade in/out to prevent clicks)
       const fadeInDuration = 0.005; // 5ms
-      const fadeOutDuration = 0.010; // 10ms
+      const fadeOutDuration = 0.015; // 15ms
       let envelope = 1.0;
 
       if (t < fadeInDuration) {

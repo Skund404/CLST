@@ -314,7 +314,7 @@ export class TestRenderer {
   private createCooldownBar(): void {
     const w = 300, h = this.COOLDOWN_HEIGHT;
     const x = (this.config.monitorResolution.width - w) / 2;
-    const y = this.config.monitorResolution.height - 60;
+    const y = this.config.monitorResolution.height - 50;
 
     this.cooldownBarBg = new PIXI.Graphics();
     this.cooldownBarBg.rect(x, y, w, h);
@@ -329,11 +329,18 @@ export class TestRenderer {
     if (!this.cooldownBarFill) return;
     const w = 300, h = this.COOLDOWN_HEIGHT;
     const x = (this.config.monitorResolution.width - w) / 2;
-    const y = this.config.monitorResolution.height - 60;
+    const y = this.config.monitorResolution.height - 50;
 
     this.cooldownBarFill.clear();
-    this.cooldownBarFill.rect(x, y, w * progress, h);
-    this.cooldownBarFill.fill(ready ? this.COOLDOWN_READY_COLOR : this.COOLDOWN_FILL_COLOR);
+    if (ready) {
+      // Pulse effect when ready: oscillate alpha
+      const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 150);
+      this.cooldownBarFill.rect(x, y, w, h);
+      this.cooldownBarFill.fill({ color: this.COOLDOWN_READY_COLOR, alpha: pulse });
+    } else {
+      this.cooldownBarFill.rect(x, y, w * progress, h);
+      this.cooldownBarFill.fill(this.COOLDOWN_FILL_COLOR);
+    }
   }
 
   // =========================================================================
@@ -352,7 +359,7 @@ export class TestRenderer {
 
     switch (flash.direction) {
       case 'up': y = margin; break;
-      case 'down': y = height - margin; break;
+      case 'down': y = height - 130; break; // Pushed up to avoid cooldown bar
       case 'left': x = margin; break;
       case 'right': x = width - margin; break;
     }
@@ -385,6 +392,37 @@ export class TestRenderer {
     // Hide canvas content
     if (this.progressText) this.progressText.text = '';
 
+    // Build practice section based on next layer
+    let practiceHTML = '';
+    if (info.nextLayer === 2) {
+      practiceHTML = `
+        <div class="practice-section">
+          <p class="practice-title">🎧 Practice: Listen to the tones</p>
+          <p class="practice-desc">Press SPACE for the high or low tone. Ignore the distractor (buzzy sound).</p>
+          <div class="practice-buttons">
+            <button class="practice-tone-btn" data-tone="high" style="background:#1565c0">▶ High (respond)</button>
+            <button class="practice-tone-btn" data-tone="low" style="background:#6a1b9a">▶ Low (respond)</button>
+            <button class="practice-tone-btn" data-tone="distractor" style="background:#c62828">▶ Distractor (ignore)</button>
+          </div>
+        </div>`;
+    } else if (info.nextLayer === 3) {
+      practiceHTML = `
+        <div class="practice-section">
+          <p class="practice-title">🎯 Practice: New mechanics</p>
+          <div style="margin-bottom:.75rem">
+            <p style="color:#ff9800;font-size:.95rem;margin-bottom:.25rem">Peripheral numbers</p>
+            <p class="practice-desc">Numbers flash at screen edges. Press the matching number key (0-9).</p>
+            <div id="practice-periph" style="margin-top:.5rem;height:50px;display:flex;align-items:center;justify-content:center">
+              <button id="show-periph" class="practice-tone-btn" style="background:#e65100">Show example</button>
+            </div>
+          </div>
+          <div>
+            <p style="color:#4caf50;font-size:.95rem;margin-bottom:.25rem">Cooldown bar</p>
+            <p class="practice-desc">A bar fills at the bottom of the screen. Press F when it turns green and pulses.</p>
+          </div>
+        </div>`;
+    }
+
     // Create HTML overlay for the inter-layer screen
     this.interLayerOverlay = document.createElement('div');
     this.interLayerOverlay.className = 'inter-layer-overlay';
@@ -413,6 +451,8 @@ export class TestRenderer {
             ).join('')}
           </div>
         </div>
+
+        ${practiceHTML}
 
         <div class="inter-layer-timer" id="inter-layer-timer">
           Take a breath... <span id="cooldown-countdown">${info.cooldownSeconds}</span>s
@@ -487,9 +527,53 @@ export class TestRenderer {
       .inter-layer-ready-btn:disabled {
         background: #555; color: #999; cursor: not-allowed;
       }
+      .practice-section {
+        background: rgba(255,255,255,0.08); border-radius: 12px; padding: 1.25rem;
+        margin: 0.5rem 0; text-align: center;
+      }
+      .practice-title {
+        color: #90caf9; font-weight: 600; margin-bottom: 0.75rem; font-size: .95rem;
+      }
+      .practice-desc {
+        color: #999; font-size: .82rem; margin-bottom: 0.75rem;
+      }
+      .practice-buttons {
+        display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap;
+      }
+      .practice-tone-btn {
+        padding: .5rem 1.25rem; color: #fff; border: none; border-radius: 8px;
+        cursor: pointer; font-size: .9rem; transition: opacity 0.15s;
+      }
+      .practice-tone-btn:hover { opacity: 0.85; }
     `;
     document.head.appendChild(style);
     this.container.appendChild(this.interLayerOverlay);
+
+    // Wire up practice buttons
+    if (info.nextLayer === 2) {
+      this.interLayerOverlay.querySelectorAll('.practice-tone-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tone = (btn as HTMLElement).dataset.tone as 'high' | 'low' | 'distractor';
+          try { getAudioManager().play(tone); } catch {}
+        });
+      });
+    } else if (info.nextLayer === 3) {
+      const showPeriphBtn = this.interLayerOverlay.querySelector('#show-periph');
+      const periphArea = this.interLayerOverlay.querySelector('#practice-periph');
+      if (showPeriphBtn && periphArea) {
+        showPeriphBtn.addEventListener('click', () => {
+          const digit = Math.floor(Math.random() * 10);
+          periphArea.innerHTML = `<span style="font-size:2.5rem;font-weight:700;color:#ff9800">${digit}</span><span style="color:#999;margin-left:.75rem;font-size:.85rem">← Press ${digit} on your keyboard</span>`;
+          setTimeout(() => {
+            periphArea.innerHTML = `<button id="show-periph-2" class="practice-tone-btn" style="background:#e65100">Show another</button>`;
+            periphArea.querySelector('#show-periph-2')?.addEventListener('click', () => {
+              const d2 = Math.floor(Math.random() * 10);
+              periphArea.innerHTML = `<span style="font-size:2.5rem;font-weight:700;color:#ff9800">${d2}</span><span style="color:#999;margin-left:.75rem;font-size:.85rem">← Press ${d2}</span>`;
+            });
+          }, 2000);
+        });
+      }
+    }
 
     // Countdown timer
     let remaining = info.cooldownSeconds;

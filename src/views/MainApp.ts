@@ -190,7 +190,8 @@ export class MainApp {
     this.testEngine.setCallbacks({
       onStimulusUpdate: (s: any) => renderer?.updateFromEngine(s, this.testEngine!.getState()),
       onLayerComplete: (_: any, info: InterLayerInfo) => renderer?.showInterLayerScreen(info, () => this.testEngine!.advanceToNextLayer()),
-      onTestComplete: () => { renderer?.showComplete(); this.processResults().then(() => setTimeout(() => this.showState('results'), 2000)); }
+      onTestComplete: () => { renderer?.showComplete(); this.processResults().then(() => setTimeout(() => this.showState('results'), 2000)); },
+      onAbort: () => { renderer?.destroy(); this.showState('dashboard'); }
     });
     await renderer.showCountdown(3);
     await this.testEngine.start();

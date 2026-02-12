@@ -21,6 +21,7 @@ type StateUpdateCallback = (state: TestState) => void;
 type StimulusUpdateCallback = (state: StimulusState) => void;
 type LayerCompleteCallback = (layer: number, info: InterLayerInfo) => void;
 type TestCompleteCallback = () => void;
+type TestAbortCallback = () => void;
 
 export class TestEngine {
   // Layer durations from spec (Section 3)
@@ -110,6 +111,7 @@ export class TestEngine {
   private onStimulusUpdate: StimulusUpdateCallback | null = null;
   private onLayerComplete: LayerCompleteCallback | null = null;
   private onTestComplete: TestCompleteCallback | null = null;
+  private onAbort: TestAbortCallback | null = null;
 
   constructor(sessionId: string, config: SessionConfig) {
     this.sessionId = sessionId;
@@ -139,13 +141,13 @@ export class TestEngine {
       casual: {
         targetSpeed: 150,
         audioInterval: [2000, 4000],
-        peripheralDuration: 1500,
+        peripheralDuration: 2200,
         cooldownInterval: 10000
       },
       standard: {
         targetSpeed: 200,
         audioInterval: [1500, 3500],
-        peripheralDuration: 1200,
+        peripheralDuration: 1800,
         cooldownInterval: 8000
       },
       intense: {
@@ -168,12 +170,14 @@ export class TestEngine {
     onStimulusUpdate?: StimulusUpdateCallback;
     onLayerComplete?: LayerCompleteCallback;
     onTestComplete?: TestCompleteCallback;
+    onAbort?: TestAbortCallback;
   }): void {
     this.onEvent = callbacks.onEvent || null;
     this.onStateUpdate = callbacks.onStateUpdate || null;
     this.onStimulusUpdate = callbacks.onStimulusUpdate || null;
     this.onLayerComplete = callbacks.onLayerComplete || null;
     this.onTestComplete = callbacks.onTestComplete || null;
+    this.onAbort = callbacks.onAbort || null;
   }
 
   async start(): Promise<void> {
@@ -275,6 +279,7 @@ export class TestEngine {
   }
 
   stop(): void {
+    const wasRunning = this.isRunning;
     this.isRunning = false;
     this.isPaused = false;
     this.phase = 'idle';
@@ -284,6 +289,10 @@ export class TestEngine {
     }
     document.exitPointerLock?.();
     this.emitStateUpdate();
+    // Notify UI that test was aborted (not completed normally)
+    if (wasRunning && this.onAbort) {
+      this.onAbort();
+    }
   }
 
   getEvents(): RawEvent[] {
@@ -549,27 +558,20 @@ export class TestEngine {
     this.targetPosition.x += this.targetVelocity.vx * deltaTime;
     this.targetPosition.y += this.targetVelocity.vy * deltaTime;
 
-    // --- Bounce off edges (smooth: reflect the goal angle too) ---
+    // --- Bounce off edges: cancel any active steering and reflect cleanly ---
     const { width, height } = this.config.monitorResolution;
     const margin = this.targetRadius;
 
     if (this.targetPosition.x <= margin || this.targetPosition.x >= width - margin) {
       this.targetVelocity.vx *= -1;
       this.currentAngle = Math.atan2(this.targetVelocity.vy, this.targetVelocity.vx);
-      // If we were steering to a goal, reflect that goal too
-      if (this.isSteeringToGoal) {
-        this.goalAngle = Math.PI - this.goalAngle;
-        this.goalAngle = this.normalizeAngle(this.goalAngle);
-      }
+      this.isSteeringToGoal = false; // Cancel steering — let reflected direction play out
       this.targetPosition.x = Math.max(margin, Math.min(width - margin, this.targetPosition.x));
     }
     if (this.targetPosition.y <= margin || this.targetPosition.y >= height - margin) {
       this.targetVelocity.vy *= -1;
       this.currentAngle = Math.atan2(this.targetVelocity.vy, this.targetVelocity.vx);
-      if (this.isSteeringToGoal) {
-        this.goalAngle = -this.goalAngle;
-        this.goalAngle = this.normalizeAngle(this.goalAngle);
-      }
+      this.isSteeringToGoal = false;
       this.targetPosition.y = Math.max(margin, Math.min(height - margin, this.targetPosition.y));
     }
 
